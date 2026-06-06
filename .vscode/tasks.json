@@ -4,7 +4,7 @@
         {
             "label": "Build",
             "type": "shell",
-            "command": "gradle",
+            "command": "./gradlew",
             "args": [
                 "build"
             ],
@@ -15,14 +15,89 @@
             "problemMatcher": "$javac"
         },
         {
+            "label": "Build Desktop",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": [
+                ":desktop:classes"
+            ],
+            "group": "build",
+            "problemMatcher": "$javac"
+        },
+        {
             "label": "Run Desktop",
             "type": "shell",
-            "command": "gradle",
+            "command": "./gradlew",
             "args": [
                 ":desktop:run"
             ],
             "group": "build",
             "problemMatcher": "$javac"
+        },
+        {
+            "label": "Run Desktop with Stacktrace",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": [
+                ":desktop:run",
+                "--stacktrace"
+            ],
+            "group": "build",
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Prepare JFR Run",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": [
+                ":desktop:build",
+                ":desktop:prepareProfilingDirectory"
+            ],
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Run Desktop with JFR",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": [
+                ":desktop:runDesktopJfr"
+            ],
+            "group": "build",
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Build Android Debug",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": [
+                ":android:assembleDebug"
+            ],
+            "group": "build",
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Install Android Debug",
+            "type": "shell",
+            "command": "./gradlew",
+            "args": [
+                ":android:installDebug"
+            ],
+            "group": "build",
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Run Android Debug",
+            "type": "shell",
+            "command": "${env:HOME}/Library/Android/sdk/platform-tools/adb",
+            "args": [
+                "shell",
+                "am",
+                "start",
+                "-n",
+                "com.ellasgame/com.ellasgame.android.AndroidLauncher"
+            ],
+            "group": "build",
+            "problemMatcher": []
         }
     ]
 }

@@ -1,5 +1,6 @@
 package com.ellasgame.desktop;
 
+import com.ellasgame.core.AppSettings;
 import com.ellasgame.core.Result;
 
 import java.io.IOException;
@@ -10,32 +11,84 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public final class DesktopCameraOptions {
-    private static final List<String> FALLBACK_OPTIONS = List.of("Default camera");
+    private static final List<String> FALLBACK_OPTIONS = List.of(AppSettings.DEFAULT_CAMERA);
 
     public Result<List<String>, String> findCameraOptions() {
+        List<String> options = new ArrayList<>();
+        options.addAll(findPlatformCameraOptions());
+
+        List<String> distinctOptions = options.stream()
+                .filter(name -> !name.isBlank())
+                .distinct()
+                .toList();
+        if (distinctOptions.isEmpty()) {
+            return Result.success(FALLBACK_OPTIONS);
+        }
+
+        return Result.success(distinctOptions);
+    }
+
+    public String validCameraOrDefault(String camera) {
+        return selectedCameraOrDefault(camera).name();
+    }
+
+    public SelectedCamera selectedCameraOrDefault(String camera) {
+        Result<List<String>, String> cameraOptions = findCameraOptions();
+        if (cameraOptions instanceof Result.Success<List<String>, String> success) {
+            return selectedCameraOrDefault(success.value(), camera);
+        }
+
+        return new SelectedCamera(AppSettings.DEFAULT_CAMERA, 0);
+    }
+
+    public static String validCameraOrDefault(List<String> cameraOptions, String camera) {
+        return selectedCameraOrDefault(cameraOptions, camera).name();
+    }
+
+    public static SelectedCamera selectedCameraOrDefault(List<String> cameraOptions, String camera) {
+        if (cameraOptions.isEmpty()) {
+            return new SelectedCamera(AppSettings.DEFAULT_CAMERA, 0);
+        }
+
+        int selectedIndex = cameraOptions.indexOf(camera);
+        if (selectedIndex >= 0) {
+            return new SelectedCamera(camera, selectedIndex);
+        }
+
+        return new SelectedCamera(cameraOptions.get(0), 0);
+    }
+
+    private List<String> findPlatformCameraOptions() {
         String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-
         if (osName.contains("mac")) {
-            return runCommand(List.of("system_profiler", "SPCameraDataType"))
-                    .map(this::parseMacCameraOptions)
-                    .map(this::withFallback);
+            return findMacCameraOptions();
         }
 
-        if (osName.contains("win")) {
-            return runCommand(List.of(
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "Get-CimInstance Win32_PnPEntity | "
-                            + "Where-Object { $_.Name -match 'Camera|Webcam' } | "
-                            + "Select-Object -ExpandProperty Name"))
-                    .map(this::parseLineOptions)
-                    .map(this::withFallback);
+        return List.of();
+    }
+
+    private List<String> findMacCameraOptions() {
+        List<String> options = new ArrayList<>();
+        runCommand(List.of("system_profiler", "SPCameraDataType"))
+                .map(this::parseSystemProfilerCameraOptions)
+                .map(foundOptions -> {
+                    options.addAll(foundOptions);
+                    return foundOptions;
+                });
+
+        if (!options.isEmpty()) {
+            return options;
         }
 
-        return runCommand(List.of("v4l2-ctl", "--list-devices"))
-                .map(this::parseLinuxCameraOptions)
-                .map(this::withFallback);
+        runCommand(List.of("ioreg", "-r", "-c", "AppleH13CamIn", "-l"))
+                .map(output -> {
+                    if (!output.isBlank()) {
+                        options.add("Built-in camera");
+                    }
+                    return output;
+                });
+
+        return options;
     }
 
     private Result<String, String> runCommand(List<String> command) {
@@ -66,7 +119,7 @@ public final class DesktopCameraOptions {
         }
     }
 
-    private List<String> parseMacCameraOptions(String output) {
+    private List<String> parseSystemProfilerCameraOptions(String output) {
         List<String> options = new ArrayList<>();
         for (String line : output.lines().toList()) {
             String trimmed = line.trim();
@@ -78,31 +131,5 @@ public final class DesktopCameraOptions {
             }
         }
         return options;
-    }
-
-    private List<String> parseLinuxCameraOptions(String output) {
-        List<String> options = new ArrayList<>();
-        for (String line : output.lines().toList()) {
-            String trimmed = line.trim();
-            if (!trimmed.isEmpty() && !trimmed.startsWith("/dev/")) {
-                options.add(trimmed.endsWith(":") ? trimmed.substring(0, trimmed.length() - 1) : trimmed);
-            }
-        }
-        return options;
-    }
-
-    private List<String> parseLineOptions(String output) {
-        return output.lines()
-                .map(String::trim)
-                .filter(line -> !line.isEmpty())
-                .toList();
-    }
-
-    private List<String> withFallback(List<String> options) {
-        if (options.isEmpty()) {
-            return FALLBACK_OPTIONS;
-        }
-
-        return List.copyOf(options);
     }
 }

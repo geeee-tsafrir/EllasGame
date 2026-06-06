@@ -1,13 +1,14 @@
 package com.ellasgame.core;
 
 import java.io.Serializable;
-import java.util.Objects;
 
 public record AppSettings(String camera) implements Serializable {
     public static final String DEFAULT_CAMERA = "Default camera";
 
     public AppSettings {
-        Objects.requireNonNull(camera, "camera");
+        if (camera == null || camera.isBlank()) {
+            camera = DEFAULT_CAMERA;
+        }
     }
 
     public static AppSettings defaults() {

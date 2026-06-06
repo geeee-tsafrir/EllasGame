@@ -55,6 +55,9 @@ local.properties
 # Local app settings
 settings.json
 
+# Profiling output
+*.jfr
+
 # OS files
 .DS_Store
 Thumbs.db

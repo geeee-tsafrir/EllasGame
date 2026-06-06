@@ -7,7 +7,28 @@
             "request": "launch",
             "mainClass": "com.ellasgame.desktop.DesktopLauncher",
             "projectName": "desktop",
-            "preLaunchTask": "Build"
+            "preLaunchTask": "Build Desktop"
+        },
+        {
+            "type": "java",
+            "name": "Run Desktop with JFR",
+            "request": "launch",
+            "mainClass": "com.ellasgame.desktop.DesktopLauncher",
+            "projectName": "desktop",
+            "preLaunchTask": "Prepare JFR Run",
+            "vmArgs": "-XX:StartFlightRecording=filename=${workspaceFolder}/profiling/ellasgame-camera.jfr,dumponexit=true,disk=true,settings=profile -XX:FlightRecorderOptions=stackdepth=128"
+        },
+        {
+            "type": "node-terminal",
+            "name": "Run Desktop via Gradle",
+            "request": "launch",
+            "command": "./gradlew :desktop:run --stacktrace"
+        },
+        {
+            "type": "node-terminal",
+            "name": "Run Desktop via Gradle with JFR",
+            "request": "launch",
+            "command": "./gradlew :desktop:runDesktopJfr --stacktrace"
         }
     ]
 }

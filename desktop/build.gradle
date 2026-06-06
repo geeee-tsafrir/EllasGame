@@ -4,8 +4,73 @@ plugins {
 
 dependencies {
     implementation project(":core")
+    implementation "org.bytedeco:javacv-platform:1.5.11"
 }
 
 application {
     mainClass = "com.ellasgame.desktop.DesktopLauncher"
+}
+
+tasks.register("prepareProfilingDirectory") {
+    group = "application"
+    description = "Create the profiling output directory before launching with JFR."
+
+    def profileDir = rootProject.layout.projectDirectory.dir("profiling")
+    outputs.dir(profileDir)
+
+    doLast {
+        profileDir.asFile.mkdirs()
+    }
+}
+
+tasks.register("runDesktopJfr", JavaExec) {
+    group = "application"
+    description = "Run the desktop app with a Java Flight Recorder profile."
+    dependsOn("prepareProfilingDirectory")
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = application.mainClass
+
+    def profileDir = rootProject.layout.projectDirectory.dir("profiling")
+    def profileFile = profileDir.file("ellasgame-camera.jfr")
+    doFirst {
+        profileDir.asFile.mkdirs()
+        println "JFR recording will be written to: ${profileFile.asFile.absolutePath}"
+    }
+
+    jvmArgs = [
+            "-XX:StartFlightRecording=filename=${profileFile.asFile.absolutePath},dumponexit=true,disk=true,settings=profile",
+            "-XX:FlightRecorderOptions=stackdepth=128"
+    ]
+}
+
+tasks.register("listMacCameraDevices", Exec) {
+    group = "diagnostics"
+    description = "List AVFoundation camera devices through ffmpeg on macOS."
+    commandLine("ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", "")
+    ignoreExitValue = true
+}
+
+tasks.register("probeMacCameraMode", Exec) {
+    group = "diagnostics"
+    description = "Probe an AVFoundation camera mode. Example: gradle :desktop:probeMacCameraMode -PcameraIndex=0 -PcameraWidth=1280 -PcameraHeight=720 -PcameraFps=30 -PpixelFormat=nv12"
+
+    def cameraIndex = providers.gradleProperty("cameraIndex").orElse("0")
+    def cameraWidth = providers.gradleProperty("cameraWidth").orElse("1280")
+    def cameraHeight = providers.gradleProperty("cameraHeight").orElse("720")
+    def cameraFps = providers.gradleProperty("cameraFps").orElse("30")
+    def pixelFormat = providers.gradleProperty("pixelFormat").orElse("nv12")
+    def durationSeconds = providers.gradleProperty("durationSeconds").orElse("8")
+
+    commandLine(
+            "ffmpeg",
+            "-f", "avfoundation",
+            "-video_size", "${cameraWidth.get()}x${cameraHeight.get()}",
+            "-framerate", cameraFps.get(),
+            "-pixel_format", pixelFormat.get(),
+            "-i", "${cameraIndex.get()}:none",
+            "-t", durationSeconds.get(),
+            "-an",
+            "-f", "null",
+            "-"
+    )
 }

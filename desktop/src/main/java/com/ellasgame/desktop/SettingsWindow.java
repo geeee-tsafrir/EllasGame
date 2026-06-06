@@ -41,7 +41,8 @@ public final class SettingsWindow {
         }
 
         AppSettings loadedSettings = loadSettings(settingsStore);
-        SettingsContent settingsContent = createContent(cameraOptions.findCameraOptions(), loadedSettings);
+        Result<List<String>, String> currentCameraOptions = cameraOptions.findCameraOptions();
+        SettingsContent settingsContent = createContent(currentCameraOptions, loadedSettings, cameraOptions);
 
         settingsDialog = new JDialog(owner, "Settings", Dialog.ModalityType.APPLICATION_MODAL);
         settingsDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
@@ -79,7 +80,10 @@ public final class SettingsWindow {
         return defaultSettings;
     }
 
-    private static SettingsContent createContent(Result<List<String>, String> cameraOptions, AppSettings settings) {
+    private static SettingsContent createContent(
+            Result<List<String>, String> cameraOptions,
+            AppSettings settings,
+            DesktopCameraOptions cameraValidator) {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(new Color(35, 42, 54));
         panel.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
@@ -105,7 +109,7 @@ public final class SettingsWindow {
         constraints.insets = new Insets(0, 0, 0, 0);
         panel.add(settingsTable, constraints);
 
-        return new SettingsContent(panel, cameraSelector);
+        return new SettingsContent(panel, cameraSelector, cameraValidator);
     }
 
     private static JPanel createSettingsTable(JComboBox<String> cameraSelector) {
@@ -169,12 +173,10 @@ public final class SettingsWindow {
 
         if (cameraOptions instanceof Result.Success<List<String>, String> success) {
             success.value().forEach(model::addElement);
-        } else if (cameraOptions instanceof Result.Failure<List<String>, String>) {
-            model.addElement("Default camera");
         }
 
-        if (model.getIndexOf(AppSettings.DEFAULT_CAMERA) < 0) {
-            model.insertElementAt(AppSettings.DEFAULT_CAMERA, 0);
+        if (model.getSize() == 0) {
+            model.addElement(AppSettings.DEFAULT_CAMERA);
         }
 
         return model;
@@ -187,17 +189,24 @@ public final class SettingsWindow {
             }
         }
 
-        return AppSettings.DEFAULT_CAMERA;
+        if (comboBox.getItemCount() == 0) {
+            return AppSettings.DEFAULT_CAMERA;
+        }
+
+        return comboBox.getItemAt(0);
     }
 
-    private record SettingsContent(JPanel panel, JComboBox<String> cameraSelector) {
+    private record SettingsContent(
+            JPanel panel,
+            JComboBox<String> cameraSelector,
+            DesktopCameraOptions cameraValidator) {
         AppSettings toAppSettings() {
             Object selectedCamera = cameraSelector.getSelectedItem();
             if (selectedCamera == null) {
                 return AppSettings.defaults();
             }
 
-            String validCameraOption = validCameraOption(cameraSelector, selectedCamera.toString());
+            String validCameraOption = cameraValidator.validCameraOrDefault(selectedCamera.toString());
             return ApplicationSettings.current().withCamera(validCameraOption);
         }
     }
