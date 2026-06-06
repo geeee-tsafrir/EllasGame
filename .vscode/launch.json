@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run Desktop",
+            "request": "launch",
+            "mainClass": "com.ellasgame.desktop.DesktopLauncher",
+            "projectName": "desktop",
+            "preLaunchTask": "Build"
+        }
+    ]
+}

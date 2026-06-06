@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "gradle",
+            "args": [
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Run Desktop",
+            "type": "shell",
+            "command": "gradle",
+            "args": [
+                ":desktop:run"
+            ],
+            "group": "build",
+            "problemMatcher": "$javac"
+        }
+    ]
+}
