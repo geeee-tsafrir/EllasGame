@@ -12,6 +12,8 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.WritableRaster;
 import java.util.Locale;
 
 import javax.swing.JPanel;
@@ -43,6 +45,20 @@ public final class CameraStreamPanel extends JPanel {
 
     public boolean isConnected() {
         return connected;
+    }
+
+    public BufferedImage snapshot() {
+        if (currentFrame == null) {
+            return null;
+        }
+
+        ColorModel colorModel = currentFrame.getColorModel();
+        WritableRaster raster = currentFrame.copyData(null);
+        return new BufferedImage(
+                colorModel,
+                raster,
+                colorModel.isAlphaPremultiplied(),
+                null);
     }
 
     public void connect(SelectedCamera camera) {
