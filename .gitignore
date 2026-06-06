@@ -52,6 +52,9 @@ local.properties
 .codex/sessions/
 .codex/*.log
 
+# Local app settings
+settings.json
+
 # OS files
 .DS_Store
 Thumbs.db
