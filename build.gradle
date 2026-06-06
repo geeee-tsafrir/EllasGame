@@ -1,0 +1,26 @@
+plugins {
+    id "java"
+}
+
+allprojects {
+    group = "com.ellasgame"
+    version = "0.1.0"
+}
+
+subprojects {
+    apply plugin: "java"
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+    }
+}
