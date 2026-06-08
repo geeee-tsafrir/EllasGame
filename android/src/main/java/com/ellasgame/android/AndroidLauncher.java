@@ -2,6 +2,7 @@ package com.ellasgame.android;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -17,6 +18,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.tts.TextToSpeech;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -44,11 +46,13 @@ import androidx.camera.view.PreviewView;
 
 import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.GameApp;
+import com.ellasgame.core.QuestionPrompt;
 import com.ellasgame.core.SessionStatistics;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -78,12 +82,18 @@ public final class AndroidLauncher extends ComponentActivity {
     private boolean cameraConnected;
     private String selectedCamera = BACK_CAMERA;
     private WordChallenge currentChallenge;
+    private TextToSpeech textToSpeech;
+    private boolean speechReady;
+    private boolean speechWarningShown;
+    private String pendingSpeechText;
+    private Locale pendingSpeechLocale;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         configureSystemBars();
         selectedCamera = loadCameraSetting();
+        initializeTextToSpeech();
         gameApp.start();
         showMenuScreen();
     }
@@ -91,8 +101,63 @@ public final class AndroidLauncher extends ComponentActivity {
     @Override
     protected void onDestroy() {
         stopCamera();
+        shutdownTextToSpeech();
         gameApp.stop();
         super.onDestroy();
+    }
+
+    private void initializeTextToSpeech() {
+        textToSpeech = new TextToSpeech(this, status -> {
+            if (status != TextToSpeech.SUCCESS) {
+                showSpeechWarning();
+                return;
+            }
+            mainHandler.post(this::configureSpeech);
+        });
+    }
+
+    private void configureSpeech() {
+        if (textToSpeech == null) {
+            showSpeechWarning();
+            return;
+        }
+
+        speechReady = true;
+        if (pendingSpeechText != null) {
+            String text = pendingSpeechText;
+            Locale locale = pendingSpeechLocale;
+            pendingSpeechText = null;
+            pendingSpeechLocale = null;
+            speakText(text, locale);
+        }
+    }
+
+    private void shutdownTextToSpeech() {
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+            textToSpeech = null;
+        }
+    }
+
+    private void showSpeechWarning() {
+        if (!speechWarningShown) {
+            speechWarningShown = true;
+            new AlertDialog.Builder(this)
+                    .setTitle("Speech unavailable")
+                    .setMessage("Text-to-speech is not available on this device. The words are still shown on screen.")
+                    .setPositiveButton("Install voices", (dialog, which) -> openTextToSpeechInstaller())
+                    .setNegativeButton("OK", null)
+                    .show();
+        }
+    }
+
+    private void openTextToSpeechInstaller() {
+        try {
+            startActivity(new Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA));
+        } catch (RuntimeException exception) {
+            Toast.makeText(this, "Could not open text-to-speech voice installer.", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void configureSystemBars() {
@@ -150,11 +215,38 @@ public final class AndroidLauncher extends ComponentActivity {
         screen.setGravity(Gravity.CENTER);
 
         LinearLayout content = contentPanel();
-        content.addView(textLabel(currentChallenge.hebrew(), 46f, TEXT, Typeface.BOLD));
+        content.addView(hebrewQuestionLabel(QuestionPrompt.prefix(), 20f));
+        content.addView(spacer(14));
+        content.addView(hebrewQuestionLabel(currentChallenge.hebrew(), 46f));
         content.addView(spacer(30));
         content.addView(choiceActionsRow());
         screen.addView(content);
         setContentView(screen);
+        speakHebrew(QuestionPrompt.spoken(currentChallenge.hebrew()));
+    }
+
+    private void speakHebrew(String text) {
+        speakText(text, new Locale("he", "IL"));
+    }
+
+    private void speakArabic(String text) {
+        speakText(text, new Locale("ar"));
+    }
+
+    private void speakText(String text, Locale locale) {
+        if (!speechReady || textToSpeech == null) {
+            pendingSpeechText = text;
+            pendingSpeechLocale = locale;
+            return;
+        }
+
+        int languageStatus = textToSpeech.setLanguage(locale);
+        if (languageStatus == TextToSpeech.LANG_MISSING_DATA
+                || languageStatus == TextToSpeech.LANG_NOT_SUPPORTED) {
+            showSpeechWarning();
+            return;
+        }
+        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "speech-" + System.nanoTime());
     }
 
     private LinearLayout choiceActionsRow() {
@@ -277,6 +369,7 @@ public final class AndroidLauncher extends ComponentActivity {
         content.addView(textButton("Finish", view -> showSummaryScreen()));
         screen.addView(content);
         setContentView(screen);
+        speakArabic(currentChallenge.spokenArabic());
     }
 
     private void showSummaryScreen() {
@@ -514,6 +607,18 @@ public final class AndroidLauncher extends ComponentActivity {
         return label;
     }
 
+    private TextView hebrewQuestionLabel(String text, float size) {
+        TextView label = textLabel(text, size, TEXT, Typeface.BOLD);
+        label.setTextDirection(View.TEXT_DIRECTION_RTL);
+        label.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        label.setGravity(Gravity.CENTER);
+        label.setIncludeFontPadding(true);
+        label.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        return label;
+    }
+
     private TextView expectedFeedbackLabel(ArabicGuessComparison.GuessComparison result) {
         TextView label = textLabel(String.join("", result.expectedCharacters()), 22f, FEEDBACK_BLUE, Typeface.BOLD);
         label.setTextDirection(View.TEXT_DIRECTION_RTL);
@@ -653,13 +758,13 @@ public final class AndroidLauncher extends ComponentActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT);
     }
 
-    private record WordChallenge(String hebrew, String expectedArabic) {
+    private record WordChallenge(String hebrew, String expectedArabic, String spokenArabic) {
         private static final List<WordChallenge> WORDS = List.of(
-                new WordChallenge("שלום", "سَلَام"),
-                new WordChallenge("בית", "بَيْت"),
-                new WordChallenge("כלב", "كَلْب"),
-                new WordChallenge("ספר", "كِتَاب"),
-                new WordChallenge("שמש", "شَمْس"));
+                new WordChallenge("שלום", "سَلَام", "سَلَامْ"),
+                new WordChallenge("בית", "بَيْت", "بَيْتْ"),
+                new WordChallenge("כלב", "كَلْب", "كَلْبْ"),
+                new WordChallenge("ספר", "كِتَاب", "كِتَابْ"),
+                new WordChallenge("שמש", "شَمْس", "شَمْسْ"));
 
         static WordChallenge random(Random random) {
             return WORDS.get(random.nextInt(WORDS.size()));

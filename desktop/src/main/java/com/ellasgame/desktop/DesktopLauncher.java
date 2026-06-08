@@ -3,6 +3,7 @@ package com.ellasgame.desktop;
 import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.ApplicationSettings;
 import com.ellasgame.core.GameApp;
+import com.ellasgame.core.QuestionPrompt;
 import com.ellasgame.core.SessionStatistics;
 
 import java.awt.BasicStroke;
@@ -164,6 +165,11 @@ public final class DesktopLauncher {
             panel.setLayout(new GridBagLayout());
 
             JPanel content = centeredContent();
+            JLabel prompt = valueLabel(currentChallenge == null ? "" : QuestionPrompt.prefix());
+            prompt.setForeground(TEXT);
+            prompt.setFont(prompt.getFont().deriveFont(Font.BOLD, 22f));
+            content.add(prompt);
+            content.add(Box.createVerticalStrut(16));
             JLabel word = titleLabel(currentChallenge == null ? "" : currentChallenge.hebrew());
             content.add(word);
             content.add(Box.createVerticalStrut(34));
