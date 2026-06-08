@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -178,7 +177,7 @@ public final class AndroidLauncher extends ComponentActivity {
         actions.addView(menuActionRow(R.drawable.settings, "Settings", view -> showSettingsDialog()));
         actions.addView(spacer(24));
         actions.addView(menuActionRow(R.drawable.play, "Play", view -> startSession()));
-        LinearLayout window = fullSizeFramePanel(FrameTheme.CONSOLE);
+        LinearLayout window = fullSizeFramePanel();
         window.addView(actions);
         menu.addView(window, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -220,7 +219,7 @@ public final class AndroidLauncher extends ComponentActivity {
         LinearLayout screen = fullPanel();
         screen.setGravity(Gravity.CENTER);
 
-        LinearLayout content = fullSizeFramePanel(FrameTheme.DISPLAY);
+        LinearLayout content = fullSizeFramePanel();
         content.addView(hebrewQuestionLabel(QuestionPrompt.prefix(), 18f));
         content.addView(spacer(8));
         content.addView(hebrewQuestionLabel(currentChallenge.hebrew(), 42f));
@@ -295,7 +294,7 @@ public final class AndroidLauncher extends ComponentActivity {
         cameraPreview = new PreviewView(this);
         cameraPreview.setScaleType(PreviewView.ScaleType.FILL_CENTER);
         previewFrame.addView(cameraPreview, matchParent());
-        LinearLayout framedPreview = surfacePanel(FrameTheme.OPTICAL);
+        LinearLayout framedPreview = surfacePanel();
         framedPreview.addView(previewFrame, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         screen.addView(framedPreview, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         screen.addView(bottomBar(textButton("Capture", view -> capturePreviewBitmap())));
@@ -309,7 +308,7 @@ public final class AndroidLauncher extends ComponentActivity {
         LinearLayout screen = fullPanel();
         screen.setPadding(dp(12), dp(12), dp(12), dp(12));
         screen.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout framedSketchpad = surfacePanel(FrameTheme.DRAFTING);
+        LinearLayout framedSketchpad = surfacePanel();
         framedSketchpad.addView(sketchpadView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         screen.addView(framedSketchpad, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         screen.addView(bottomBar(sketchpadControls(sketchpadView)));
@@ -333,7 +332,7 @@ public final class AndroidLauncher extends ComponentActivity {
         screen.setOrientation(LinearLayout.VERTICAL);
 
         RegionSelectionView regionView = new RegionSelectionView(this, snapshot);
-        LinearLayout framedRegion = surfacePanel(FrameTheme.OPTICAL);
+        LinearLayout framedRegion = surfacePanel();
         framedRegion.addView(regionView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         screen.addView(framedRegion, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         screen.addView(bottomBar(textButton("Ready", view -> {
@@ -361,7 +360,7 @@ public final class AndroidLauncher extends ComponentActivity {
 
         LinearLayout screen = fullPanel();
         screen.setGravity(Gravity.CENTER);
-        LinearLayout content = fullSizeFramePanel(FrameTheme.SCORING);
+        LinearLayout content = fullSizeFramePanel();
         content.addView(textLabel(currentChallenge.hebrew(), 44f, TEXT, Typeface.BOLD));
         content.addView(spacer(16));
         content.addView(feedbackRow("Expected:", expectedFeedbackLabel(result)));
@@ -393,7 +392,7 @@ public final class AndroidLauncher extends ComponentActivity {
 
         LinearLayout screen = fullPanel();
         screen.setGravity(Gravity.CENTER);
-        LinearLayout content = fullSizeFramePanel(FrameTheme.LEDGER);
+        LinearLayout content = fullSizeFramePanel();
         content.addView(textLabel("סיכום", 44f, TEXT, Typeface.BOLD));
         content.addView(spacer(16));
         content.addView(textLabel("Words: " + summary.wordCount(), 18f, MUTED_TEXT, Typeface.BOLD));
@@ -587,30 +586,29 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private LinearLayout contentPanel() {
-        return contentPanel(FrameTheme.DISPLAY);
-    }
-
-    private LinearLayout contentPanel(FrameTheme theme) {
-        LinearLayout content = new SteampunkFrameLayout(theme);
+        LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.CENTER);
         content.setMinimumWidth(0);
         content.setPadding(dp(66), dp(64), dp(66), dp(54));
+        content.setBackgroundColor(PANEL);
         return content;
     }
 
-    private LinearLayout surfacePanel(FrameTheme theme) {
-        LinearLayout content = new SteampunkFrameLayout(theme);
+    private LinearLayout surfacePanel() {
+        LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(72), dp(76), dp(72), dp(60));
+        content.setPadding(0, 0, 0, 0);
+        content.setBackgroundColor(PANEL);
         return content;
     }
 
-    private LinearLayout fullSizeFramePanel(FrameTheme theme) {
-        LinearLayout content = new SteampunkFrameLayout(theme);
+    private LinearLayout fullSizeFramePanel() {
+        LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.CENTER);
-        content.setPadding(dp(76), dp(78), dp(76), dp(66));
+        content.setPadding(dp(30), dp(28), dp(30), dp(24));
+        content.setBackgroundColor(PANEL);
         return content;
     }
 
@@ -793,44 +791,6 @@ public final class AndroidLauncher extends ComponentActivity {
         return new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT);
-    }
-
-    private enum FrameTheme {
-        CONSOLE,
-        DISPLAY,
-        OPTICAL,
-        DRAFTING,
-        SCORING,
-        LEDGER
-    }
-
-    private final class SteampunkFrameLayout extends LinearLayout {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private Bitmap frameBitmap;
-
-        SteampunkFrameLayout(FrameTheme theme) {
-            super(AndroidLauncher.this);
-            setWillNotDraw(false);
-            setBackgroundColor(Color.TRANSPARENT);
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            drawFrame(canvas);
-        }
-
-        private void drawFrame(Canvas canvas) {
-            if (frameBitmap == null) {
-                frameBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.steampunk_window_frame);
-            }
-            canvas.drawBitmap(
-                    frameBitmap,
-                    new Rect(0, 0, frameBitmap.getWidth(), frameBitmap.getHeight()),
-                    new Rect(0, 0, getWidth(), getHeight()),
-                    paint);
-        }
-
     }
 
     private record WordChallenge(String hebrew, String expectedArabic, String spokenArabic) {

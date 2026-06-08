@@ -27,7 +27,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +44,6 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.imageio.ImageIO;
 
 public final class DesktopLauncher {
     private static final String MENU_CARD = "menu";
@@ -139,7 +137,7 @@ public final class DesktopLauncher {
             actions.add(Box.createVerticalStrut(24));
             actions.add(createLargeActionButton("/icons/play.png", "Play", this::startNewSession));
 
-            JPanel window = centeredContent(FrameTheme.CONSOLE);
+            JPanel window = centeredContent();
             window.add(actions);
             menu.add(window, new GridBagConstraints());
             return menu;
@@ -168,7 +166,7 @@ public final class DesktopLauncher {
             JPanel panel = fullPanel();
             panel.setLayout(new GridBagLayout());
 
-            JPanel content = centeredContent(FrameTheme.DISPLAY);
+            JPanel content = centeredContent();
             JLabel prompt = valueLabel(currentChallenge == null ? "" : QuestionPrompt.prefix());
             prompt.setForeground(TEXT);
             prompt.setFont(prompt.getFont().deriveFont(Font.BOLD, 22f));
@@ -220,9 +218,7 @@ public final class DesktopLauncher {
 
             JPanel panel = fullPanel();
             panel.setLayout(new BorderLayout());
-            JPanel framedSurface = surfacePanel(FrameTheme.OPTICAL);
-            framedSurface.add(cameraStreamPanel, BorderLayout.CENTER);
-            panel.add(framedSurface, BorderLayout.CENTER);
+            panel.add(cameraStreamPanel, BorderLayout.CENTER);
             panel.add(bottomBar(createTextButton("Capture", this::captureCameraFrame)), BorderLayout.SOUTH);
             showGameContent(panel);
         }
@@ -232,9 +228,7 @@ public final class DesktopLauncher {
 
             JPanel panel = fullPanel();
             panel.setLayout(new BorderLayout());
-            JPanel framedSurface = surfacePanel(FrameTheme.DRAFTING);
-            framedSurface.add(sketchpadPanel, BorderLayout.CENTER);
-            panel.add(framedSurface, BorderLayout.CENTER);
+            panel.add(sketchpadPanel, BorderLayout.CENTER);
             panel.add(bottomBar(sketchpadControls(sketchpadPanel)), BorderLayout.SOUTH);
             showGameContent(panel);
         }
@@ -251,9 +245,7 @@ public final class DesktopLauncher {
 
             JPanel panel = fullPanel();
             panel.setLayout(new BorderLayout());
-            JPanel framedSurface = surfacePanel(FrameTheme.OPTICAL);
-            framedSurface.add(regionSelectionPanel, BorderLayout.CENTER);
-            panel.add(framedSurface, BorderLayout.CENTER);
+            panel.add(regionSelectionPanel, BorderLayout.CENTER);
             panel.add(bottomBar(createTextButton("Ready", () -> {
                 Rectangle selectedRegion = regionSelectionPanel.selectedRegionInImageCoordinates();
                 String arabicWord = processCapturedRegion(currentChallenge, snapshot, selectedRegion);
@@ -281,7 +273,7 @@ public final class DesktopLauncher {
 
             JPanel panel = fullPanel();
             panel.setLayout(new GridBagLayout());
-            JPanel content = centeredContent(FrameTheme.SCORING);
+            JPanel content = centeredContent();
             content.add(titleLabel(currentChallenge.hebrew()));
             content.add(Box.createVerticalStrut(16));
             content.add(htmlValueLabel(expectedFeedbackHtml(result)));
@@ -314,7 +306,7 @@ public final class DesktopLauncher {
 
             JPanel panel = fullPanel();
             panel.setLayout(new GridBagLayout());
-            JPanel content = centeredContent(FrameTheme.LEDGER);
+            JPanel content = centeredContent();
             content.add(titleLabel("סיכום"));
             content.add(Box.createVerticalStrut(16));
             content.add(valueLabel("Words: " + summary.wordCount()));
@@ -463,21 +455,14 @@ public final class DesktopLauncher {
         }
 
         private JPanel centeredContent() {
-            return centeredContent(FrameTheme.DISPLAY);
-        }
-
-        private JPanel centeredContent(FrameTheme theme) {
-            JPanel content = new SteampunkPanel(theme);
-            content.setBorder(BorderFactory.createEmptyBorder(54, 58, 44, 58));
+            JPanel content = new JPanel();
+            content.setOpaque(true);
+            content.setBackground(PANEL);
+            content.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(18, 22, 30), 1),
+                    BorderFactory.createEmptyBorder(34, 48, 34, 48)));
             content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
             return content;
-        }
-
-        private JPanel surfacePanel(FrameTheme theme) {
-            JPanel panel = new SteampunkPanel(theme);
-            panel.setLayout(new BorderLayout());
-            panel.setBorder(BorderFactory.createEmptyBorder(50, 44, 42, 44));
-            return panel;
         }
 
         private JLabel titleLabel(String text) {
@@ -543,51 +528,6 @@ public final class DesktopLauncher {
                     .replace("\"", "&quot;")
                     .replace("'", "&#39;");
         }
-    }
-
-    private enum FrameTheme {
-        CONSOLE,
-        DISPLAY,
-        OPTICAL,
-        DRAFTING,
-        SCORING,
-        LEDGER
-    }
-
-    private static final class SteampunkPanel extends JPanel {
-        private static BufferedImage frameImage;
-
-        SteampunkPanel(FrameTheme theme) {
-            setOpaque(false);
-        }
-
-        @Override
-        protected void paintComponent(Graphics graphics) {
-            super.paintComponent(graphics);
-            Graphics2D graphics2D = (Graphics2D) graphics.create();
-            graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            drawFrame(graphics2D);
-            graphics2D.dispose();
-        }
-
-        private void drawFrame(Graphics2D graphics) {
-            int width = getWidth();
-            int height = getHeight();
-            BufferedImage image = loadFrameImage();
-            graphics.drawImage(image, 0, 0, width, height, null);
-        }
-
-        private static BufferedImage loadFrameImage() {
-            if (frameImage == null) {
-                try {
-                    frameImage = ImageIO.read(DesktopLauncher.class.getResource("/frames/steampunk-window-frame.png"));
-                } catch (IOException exception) {
-                    throw new IllegalStateException("Could not load steampunk frame image.", exception);
-                }
-            }
-            return frameImage;
-        }
-
     }
 
     private static final class SketchpadPanel extends JPanel {
