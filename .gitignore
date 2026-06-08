@@ -67,3 +67,11 @@ Thumbs.db
 *.temp
 *.swp
 *.swo
+
+# Local Python model experiments
+script/**/.venv/
+script/**/__pycache__/
+script/**/models/*
+!script/**/models/.gitkeep
+script/**/output/*
+!script/**/output/.gitkeep
