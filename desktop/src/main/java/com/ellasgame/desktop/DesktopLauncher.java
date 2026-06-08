@@ -1,5 +1,6 @@
 package com.ellasgame.desktop;
 
+import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.ApplicationSettings;
 import com.ellasgame.core.GameApp;
 
@@ -50,6 +51,8 @@ public final class DesktopLauncher {
     private static final Color TEXT = new Color(235, 240, 246);
     private static final Color MUTED_TEXT = new Color(165, 176, 190);
     private static final Color BRASS = new Color(158, 111, 52);
+    private static final Color FEEDBACK_BLUE = new Color(84, 166, 255);
+    private static final Color FEEDBACK_RED = new Color(255, 91, 91);
 
     private DesktopLauncher() {
     }
@@ -248,16 +251,24 @@ public final class DesktopLauncher {
         }
 
         private void showResult(String arabicWord, Rectangle selectedRegion) {
-            GameResult result = GameResult.compare(currentChallenge.expectedArabic(), arabicWord);
+            ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(
+                    currentChallenge.expectedArabic(),
+                    arabicWord);
 
             JPanel panel = fullPanel();
             panel.setLayout(new GridBagLayout());
             JPanel content = centeredContent();
             content.add(titleLabel(currentChallenge.hebrew()));
             content.add(Box.createVerticalStrut(16));
-            content.add(valueLabel("Arabic: " + arabicWord));
+            content.add(htmlValueLabel(expectedFeedbackHtml(result)));
             content.add(Box.createVerticalStrut(10));
-            content.add(valueLabel(result.text()));
+            content.add(htmlValueLabel(userFeedbackHtml(result)));
+            content.add(Box.createVerticalStrut(10));
+            content.add(valueLabel(result.resultText()));
+            content.add(Box.createVerticalStrut(8));
+            content.add(valueLabel("Base letters: " + result.baseLetterErrors() + " errors"));
+            content.add(Box.createVerticalStrut(8));
+            content.add(valueLabel("Signs: " + result.signErrors() + " errors"));
             if (!selectedRegion.isEmpty()) {
                 content.add(Box.createVerticalStrut(10));
                 content.add(valueLabel("Region: " + selectedRegion.width + "x" + selectedRegion.height));
@@ -413,6 +424,54 @@ public final class DesktopLauncher {
             label.setFont(label.getFont().deriveFont(Font.BOLD, 18f));
             return label;
         }
+
+        private JLabel htmlValueLabel(String html) {
+            JLabel label = valueLabel("");
+            label.setText(html);
+            return label;
+        }
+
+        private String expectedFeedbackHtml(ArabicGuessComparison.GuessComparison result) {
+            return "<html><table><tr><td align='right' width='86'><span style='color:" + htmlColor(MUTED_TEXT) + "'>Expected:</span></td>"
+                    + "<td align='right' width='140'><span dir='rtl' style='color:" + htmlColor(FEEDBACK_BLUE) + "'>"
+                    + escapeHtml(String.join("", result.expectedCharacters()))
+                    + "</span></td></tr></table></html>";
+        }
+
+        private String userFeedbackHtml(ArabicGuessComparison.GuessComparison result) {
+            StringBuilder html = new StringBuilder("<html><table><tr><td align='right' width='86'><span style='color:")
+                    .append(htmlColor(MUTED_TEXT))
+                    .append("'>User:</span></td><td align='right' width='140'><span dir='rtl'>");
+            for (ArabicGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
+                html.append("<span style='color:")
+                        .append(htmlColor(character.baseCorrect() ? FEEDBACK_BLUE : FEEDBACK_RED))
+                        .append("'>")
+                        .append(escapeHtml(character.baseText()))
+                        .append("</span>");
+                for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
+                    html.append("<span style='color:")
+                            .append(htmlColor(sign.correct() ? FEEDBACK_BLUE : FEEDBACK_RED))
+                            .append("'>")
+                            .append(escapeHtml(sign.text()))
+                        .append("</span>");
+                }
+            }
+            html.append("</span></td></tr></table></html>");
+            return html.toString();
+        }
+
+        private String htmlColor(Color color) {
+            return "#%02x%02x%02x".formatted(color.getRed(), color.getGreen(), color.getBlue());
+        }
+
+        private String escapeHtml(String text) {
+            return text
+                    .replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;")
+                    .replace("'", "&#39;");
+        }
     }
 
     private static final class SketchpadPanel extends JPanel {
@@ -488,38 +547,15 @@ public final class DesktopLauncher {
 
     private record WordChallenge(String hebrew, String expectedArabic) {
         private static final List<WordChallenge> WORDS = List.of(
-                new WordChallenge("שלום", "سلام"),
-                new WordChallenge("בית", "بيت"),
-                new WordChallenge("כלב", "كلب"),
-                new WordChallenge("ספר", "كتاب"),
-                new WordChallenge("שמש", "شمس"));
+                new WordChallenge("שלום", "سَلَام"),
+                new WordChallenge("בית", "بَيْت"),
+                new WordChallenge("כלב", "كَلْب"),
+                new WordChallenge("ספר", "كِتَاب"),
+                new WordChallenge("שמש", "شَمْس"));
 
         static WordChallenge random(Random random) {
             return WORDS.get(random.nextInt(WORDS.size()));
         }
     }
 
-    private record GameResult(boolean success, int errors) {
-        static GameResult compare(String expected, String actual) {
-            if (expected.equals(actual)) {
-                return new GameResult(true, 0);
-            }
-
-            int maxLength = Math.max(expected.length(), actual.length());
-            int errors = Math.abs(expected.length() - actual.length());
-            for (int index = 0; index < Math.min(expected.length(), actual.length()); index++) {
-                if (expected.charAt(index) != actual.charAt(index)) {
-                    errors++;
-                }
-            }
-            return new GameResult(false, Math.max(errors, maxLength == 0 ? 1 : errors));
-        }
-
-        String text() {
-            if (success) {
-                return "Result: Success";
-            }
-            return "Result: " + errors + " errors";
-        }
-    }
 }

@@ -17,6 +17,9 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -39,6 +42,7 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 
+import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.GameApp;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -59,6 +63,8 @@ public final class AndroidLauncher extends ComponentActivity {
     private static final int TEXT = Color.rgb(235, 240, 246);
     private static final int MUTED_TEXT = Color.rgb(165, 176, 190);
     private static final int BRASS = Color.rgb(158, 111, 52);
+    private static final int FEEDBACK_BLUE = Color.rgb(84, 166, 255);
+    private static final int FEEDBACK_RED = Color.rgb(255, 91, 91);
 
     private final GameApp gameApp = new GameApp();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -235,16 +241,24 @@ public final class AndroidLauncher extends ComponentActivity {
 
     private void showResult(String arabicWord, Rect selectedRegion) {
         stopCamera();
-        GameResult result = GameResult.compare(currentChallenge.expectedArabic(), arabicWord);
+        ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(
+                currentChallenge.expectedArabic(),
+                arabicWord);
 
         LinearLayout screen = fullPanel();
         screen.setGravity(Gravity.CENTER);
         LinearLayout content = contentPanel();
         content.addView(textLabel(currentChallenge.hebrew(), 44f, TEXT, Typeface.BOLD));
         content.addView(spacer(16));
-        content.addView(textLabel("Arabic: " + arabicWord, 20f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(feedbackRow("Expected:", expectedFeedbackLabel(result)));
         content.addView(spacer(8));
-        content.addView(textLabel(result.text(), 20f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(feedbackRow("User:", userFeedbackLabel(result)));
+        content.addView(spacer(8));
+        content.addView(textLabel(result.resultText(), 20f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(8));
+        content.addView(textLabel("Base letters: " + result.baseLetterErrors() + " errors", 16f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(8));
+        content.addView(textLabel("Signs: " + result.signErrors() + " errors", 16f, MUTED_TEXT, Typeface.BOLD));
         if (!selectedRegion.isEmpty()) {
             content.addView(spacer(8));
             content.addView(textLabel("Region: " + selectedRegion.width() + "x" + selectedRegion.height(), 16f, MUTED_TEXT, Typeface.BOLD));
@@ -454,6 +468,70 @@ public final class AndroidLauncher extends ComponentActivity {
         return label;
     }
 
+    private TextView expectedFeedbackLabel(ArabicGuessComparison.GuessComparison result) {
+        TextView label = textLabel(String.join("", result.expectedCharacters()), 22f, FEEDBACK_BLUE, Typeface.BOLD);
+        label.setTextDirection(View.TEXT_DIRECTION_RTL);
+        label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        return label;
+    }
+
+    private LinearLayout feedbackRow(String labelText, TextView feedback) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+
+        TextView label = textLabel(labelText, 16f, MUTED_TEXT, Typeface.BOLD);
+        label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                dp(92),
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        labelParams.setMargins(0, 0, dp(8), 0);
+        row.addView(label, labelParams);
+
+        LinearLayout.LayoutParams feedbackParams = new LinearLayout.LayoutParams(
+                dp(140),
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        row.addView(feedback, feedbackParams);
+        return row;
+    }
+
+    private TextView userFeedbackLabel(ArabicGuessComparison.GuessComparison result) {
+        StringBuilder text = new StringBuilder();
+        for (ArabicGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
+            text.append(character.baseText());
+            for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
+                text.append(sign.text());
+            }
+        }
+
+        SpannableString feedback = new SpannableString(text.toString());
+        int offset = 0;
+        for (ArabicGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
+            int end = offset + character.baseText().length();
+            feedback.setSpan(
+                    new ForegroundColorSpan(character.baseCorrect() ? FEEDBACK_BLUE : FEEDBACK_RED),
+                    offset,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            offset = end;
+            for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
+                end = offset + sign.text().length();
+                feedback.setSpan(
+                        new ForegroundColorSpan(sign.correct() ? FEEDBACK_BLUE : FEEDBACK_RED),
+                        offset,
+                        end,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                offset = end;
+            }
+        }
+
+        TextView label = textLabel("", 22f, MUTED_TEXT, Typeface.BOLD);
+        label.setText(feedback);
+        label.setTextDirection(View.TEXT_DIRECTION_RTL);
+        label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        return label;
+    }
+
     private View spacer(int heightDp) {
         View spacer = new View(this);
         spacer.setLayoutParams(new LinearLayout.LayoutParams(1, dp(heightDp)));
@@ -531,37 +609,14 @@ public final class AndroidLauncher extends ComponentActivity {
 
     private record WordChallenge(String hebrew, String expectedArabic) {
         private static final List<WordChallenge> WORDS = List.of(
-                new WordChallenge("שלום", "سلام"),
-                new WordChallenge("בית", "بيت"),
-                new WordChallenge("כלב", "كلب"),
-                new WordChallenge("ספר", "كتاب"),
-                new WordChallenge("שמש", "شمس"));
+                new WordChallenge("שלום", "سَلَام"),
+                new WordChallenge("בית", "بَيْت"),
+                new WordChallenge("כלב", "كَلْب"),
+                new WordChallenge("ספר", "كِتَاب"),
+                new WordChallenge("שמש", "شَمْس"));
 
         static WordChallenge random(Random random) {
             return WORDS.get(random.nextInt(WORDS.size()));
-        }
-    }
-
-    private record GameResult(boolean success, int errors) {
-        static GameResult compare(String expected, String actual) {
-            if (expected.equals(actual)) {
-                return new GameResult(true, 0);
-            }
-
-            int errors = Math.abs(expected.length() - actual.length());
-            for (int index = 0; index < Math.min(expected.length(), actual.length()); index++) {
-                if (expected.charAt(index) != actual.charAt(index)) {
-                    errors++;
-                }
-            }
-            return new GameResult(false, Math.max(1, errors));
-        }
-
-        String text() {
-            if (success) {
-                return "Result: Success";
-            }
-            return "Result: " + errors + " errors";
         }
     }
 
