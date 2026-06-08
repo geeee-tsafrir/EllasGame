@@ -44,6 +44,7 @@ import androidx.camera.view.PreviewView;
 
 import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.GameApp;
+import com.ellasgame.core.SessionStatistics;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
@@ -70,6 +71,7 @@ public final class AndroidLauncher extends ComponentActivity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Executor mainExecutor = command -> mainHandler.post(command);
     private final Random random = new Random();
+    private final SessionStatistics sessionStatistics = new SessionStatistics();
 
     private PreviewView cameraPreview;
     private ProcessCameraProvider cameraProvider;
@@ -109,7 +111,7 @@ public final class AndroidLauncher extends ComponentActivity {
         actions.setGravity(Gravity.CENTER);
         actions.addView(menuActionRow(R.drawable.settings, "Settings", view -> showSettingsDialog()));
         actions.addView(spacer(24));
-        actions.addView(menuActionRow(R.drawable.play, "Play", view -> startChallenge()));
+        actions.addView(menuActionRow(R.drawable.play, "Play", view -> startSession()));
         menu.addView(actions);
         setContentView(menu);
     }
@@ -130,6 +132,11 @@ public final class AndroidLauncher extends ComponentActivity {
         labelParams.setMargins(dp(18), 0, 0, 0);
         row.addView(label, labelParams);
         return row;
+    }
+
+    private void startSession() {
+        sessionStatistics.clear();
+        startChallenge();
     }
 
     private void startChallenge() {
@@ -244,6 +251,7 @@ public final class AndroidLauncher extends ComponentActivity {
         ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(
                 currentChallenge.expectedArabic(),
                 arabicWord);
+        sessionStatistics.record(currentChallenge.hebrew(), currentChallenge.expectedArabic(), result);
 
         LinearLayout screen = fullPanel();
         screen.setGravity(Gravity.CENTER);
@@ -266,7 +274,45 @@ public final class AndroidLauncher extends ComponentActivity {
         content.addView(spacer(24));
         content.addView(textButton("Again", view -> startChallenge()));
         content.addView(spacer(12));
-        content.addView(textButton("Menu", view -> showMenuScreen()));
+        content.addView(textButton("Finish", view -> showSummaryScreen()));
+        screen.addView(content);
+        setContentView(screen);
+    }
+
+    private void showSummaryScreen() {
+        SessionStatistics.Summary summary = sessionStatistics.summary();
+
+        LinearLayout screen = fullPanel();
+        screen.setGravity(Gravity.CENTER);
+        LinearLayout content = contentPanel();
+        content.addView(textLabel("סיכום", 44f, TEXT, Typeface.BOLD));
+        content.addView(spacer(16));
+        content.addView(textLabel("Words: " + summary.wordCount(), 18f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(8));
+        content.addView(textLabel("Perfect scores: " + summary.perfectScores(), 18f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(8));
+        content.addView(textLabel("Words with mistakes: " + summary.wordsWithMistakes(), 18f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(8));
+        content.addView(textLabel("Average mistakes: " + String.format("%.2f", summary.averageMistakeCount()), 18f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(8));
+        content.addView(textLabel("Lead error: " + summary.leadingErrorType(), 18f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(16));
+        content.addView(textLabel("Most errors", 20f, MUTED_TEXT, Typeface.BOLD));
+        if (summary.wordsWithMostErrors().isEmpty()) {
+            content.addView(spacer(8));
+            content.addView(textLabel("None", 18f, MUTED_TEXT, Typeface.BOLD));
+        } else {
+            for (SessionStatistics.WordErrorSummary wordSummary : summary.wordsWithMostErrors()) {
+                content.addView(spacer(8));
+                content.addView(textLabel(wordSummary.promptWord() + " / " + wordSummary.expectedWord()
+                        + ": " + wordSummary.totalErrors() + " errors", 16f, MUTED_TEXT, Typeface.BOLD));
+            }
+        }
+        content.addView(spacer(24));
+        content.addView(textButton("Menu", view -> {
+            sessionStatistics.clear();
+            showMenuScreen();
+        }));
         screen.addView(content);
         setContentView(screen);
     }

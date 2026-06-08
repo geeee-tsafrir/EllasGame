@@ -3,6 +3,7 @@ package com.ellasgame.desktop;
 import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.ApplicationSettings;
 import com.ellasgame.core.GameApp;
+import com.ellasgame.core.SessionStatistics;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -99,6 +100,7 @@ public final class DesktopLauncher {
         private final CardLayout cards = new CardLayout();
         private final JPanel rootPanel = new JPanel(cards);
         private final Random random = new Random();
+        private final SessionStatistics sessionStatistics = new SessionStatistics();
         private JFrame frame;
         private WordChallenge currentChallenge;
 
@@ -132,7 +134,7 @@ public final class DesktopLauncher {
             actions.add(createLargeActionButton("/icons/settings.png", "Settings", () ->
                     SettingsWindow.show(frame, cameraOptions, settingsStore)));
             actions.add(Box.createVerticalStrut(24));
-            actions.add(createLargeActionButton("/icons/play.png", "Play", this::startNewChallenge));
+            actions.add(createLargeActionButton("/icons/play.png", "Play", this::startNewSession));
 
             menu.add(actions, new GridBagConstraints());
             return menu;
@@ -143,6 +145,11 @@ public final class DesktopLauncher {
             gamePanel.setLayout(new BorderLayout());
             gamePanel.add(createWordChoicePanel(), BorderLayout.CENTER);
             return gamePanel;
+        }
+
+        private void startNewSession() {
+            sessionStatistics.clear();
+            startNewChallenge();
         }
 
         private void startNewChallenge() {
@@ -254,6 +261,7 @@ public final class DesktopLauncher {
             ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(
                     currentChallenge.expectedArabic(),
                     arabicWord);
+            sessionStatistics.record(currentChallenge.hebrew(), currentChallenge.expectedArabic(), result);
 
             JPanel panel = fullPanel();
             panel.setLayout(new GridBagLayout());
@@ -276,13 +284,53 @@ public final class DesktopLauncher {
             content.add(Box.createVerticalStrut(28));
             content.add(createTextButton("Again", this::startNewChallenge));
             content.add(Box.createVerticalStrut(12));
+            content.add(createTextButton("Finish", () -> {
+                cameraStreamPanel.disconnect();
+                showGameContent(createSummaryPanel());
+            }));
+
+            panel.add(content, new GridBagConstraints());
+            showGameContent(panel);
+        }
+
+        private JPanel createSummaryPanel() {
+            SessionStatistics.Summary summary = sessionStatistics.summary();
+
+            JPanel panel = fullPanel();
+            panel.setLayout(new GridBagLayout());
+            JPanel content = centeredContent();
+            content.add(titleLabel("סיכום"));
+            content.add(Box.createVerticalStrut(16));
+            content.add(valueLabel("Words: " + summary.wordCount()));
+            content.add(Box.createVerticalStrut(8));
+            content.add(valueLabel("Perfect scores: " + summary.perfectScores()));
+            content.add(Box.createVerticalStrut(8));
+            content.add(valueLabel("Words with mistakes: " + summary.wordsWithMistakes()));
+            content.add(Box.createVerticalStrut(8));
+            content.add(valueLabel("Average mistakes: " + "%.2f".formatted(summary.averageMistakeCount())));
+            content.add(Box.createVerticalStrut(8));
+            content.add(valueLabel("Lead error: " + summary.leadingErrorType()));
+            content.add(Box.createVerticalStrut(16));
+            content.add(valueLabel("Most errors"));
+            if (summary.wordsWithMostErrors().isEmpty()) {
+                content.add(Box.createVerticalStrut(8));
+                content.add(valueLabel("None"));
+            } else {
+                for (SessionStatistics.WordErrorSummary wordSummary : summary.wordsWithMostErrors()) {
+                    content.add(Box.createVerticalStrut(8));
+                    content.add(valueLabel(wordSummary.promptWord() + " / " + wordSummary.expectedWord()
+                            + ": " + wordSummary.totalErrors() + " errors"));
+                }
+            }
+            content.add(Box.createVerticalStrut(28));
             content.add(createTextButton("Menu", () -> {
+                sessionStatistics.clear();
                 cameraStreamPanel.disconnect();
                 cards.show(rootPanel, MENU_CARD);
             }));
 
             panel.add(content, new GridBagConstraints());
-            showGameContent(panel);
+            return panel;
         }
 
         private void showGameContent(Component component) {
