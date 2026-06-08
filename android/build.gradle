@@ -49,11 +49,6 @@ abstract class CopySharedAssetsTask extends DefaultTask {
                 rename { fileName -> fileName.replace("-", "_") }
                 into("drawable")
             }
-            from(sourceDirectory.dir("frames")) {
-                include("steampunk-window-frame.png")
-                rename { fileName -> fileName.replace("-", "_") }
-                into("drawable")
-            }
             into(outputDirectory)
         }
     }

@@ -12,7 +12,6 @@ application {
 }
 
 def sharedIconSourceDir = rootProject.layout.projectDirectory.dir("assets/icons")
-def sharedFrameSourceDir = rootProject.layout.projectDirectory.dir("assets/frames")
 def generatedSharedIconsDir = layout.buildDirectory.dir("generated/shared-icons/main")
 
 sourceSets {
@@ -28,10 +27,6 @@ tasks.register("copySharedIcons", Copy) {
     from(sharedIconSourceDir) {
         include("*-steampunk.png")
         into("icons")
-    }
-    from(sharedFrameSourceDir) {
-        include("steampunk-window-frame.png")
-        into("frames")
     }
     into(generatedSharedIconsDir)
 }
