@@ -33,7 +33,7 @@ android {
 
 }
 
-abstract class CopySharedIconsTask extends DefaultTask {
+abstract class CopySharedAssetsTask extends DefaultTask {
     @InputDirectory
     @PathSensitive(PathSensitivity.RELATIVE)
     abstract DirectoryProperty getSourceDirectory()
@@ -42,10 +42,15 @@ abstract class CopySharedIconsTask extends DefaultTask {
     abstract DirectoryProperty getOutputDirectory()
 
     @TaskAction
-    void copyIcons() {
+    void copyAssets() {
         project.sync {
-            from(sourceDirectory) {
+            from(sourceDirectory.dir("icons")) {
                 include("*-steampunk.png")
+                rename { fileName -> fileName.replace("-", "_") }
+                into("drawable")
+            }
+            from(sourceDirectory.dir("frames")) {
+                include("steampunk-window-frame.png")
                 rename { fileName -> fileName.replace("-", "_") }
                 into("drawable")
             }
@@ -54,11 +59,11 @@ abstract class CopySharedIconsTask extends DefaultTask {
     }
 }
 
-def copySharedIcons = tasks.register("copySharedIcons", CopySharedIconsTask) {
+def copySharedIcons = tasks.register("copySharedIcons", CopySharedAssetsTask) {
     group = "build"
-    description = "Copy shared icon assets into the Android resource layout."
+    description = "Copy shared image assets into the Android resource layout."
 
-    sourceDirectory.set(rootProject.layout.projectDirectory.dir("assets/icons"))
+    sourceDirectory.set(rootProject.layout.projectDirectory.dir("assets"))
 }
 
 androidComponents {
