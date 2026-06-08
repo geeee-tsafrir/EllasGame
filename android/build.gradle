@@ -1,3 +1,11 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+
 plugins {
     id "com.android.application"
 }
@@ -17,6 +25,42 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+abstract class CopySharedIconsTask extends DefaultTask {
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract DirectoryProperty getSourceDirectory()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @TaskAction
+    void copyIcons() {
+        project.sync {
+            from(sourceDirectory) {
+                include("*-steampunk.png")
+                rename { fileName -> fileName.replace("-", "_") }
+                into("drawable")
+            }
+            into(outputDirectory)
+        }
+    }
+}
+
+def copySharedIcons = tasks.register("copySharedIcons", CopySharedIconsTask) {
+    group = "build"
+    description = "Copy shared icon assets into the Android resource layout."
+
+    sourceDirectory.set(rootProject.layout.projectDirectory.dir("assets/icons"))
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.sources.res?.addGeneratedSourceDirectory(copySharedIcons) {
+            it.outputDirectory
+        }
     }
 }
 

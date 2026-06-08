@@ -3,21 +3,29 @@ package com.ellasgame.desktop;
 import com.ellasgame.core.ApplicationSettings;
 import com.ellasgame.core.GameApp;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Image;
 import java.awt.Insets;
+import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -149,12 +157,28 @@ public final class DesktopLauncher {
             JLabel word = titleLabel(currentChallenge == null ? "" : currentChallenge.hebrew());
             content.add(word);
             content.add(Box.createVerticalStrut(34));
-            content.add(createTextButton("Camera", this::showCameraCapturePanel));
-            content.add(Box.createVerticalStrut(16));
-            content.add(createTextButton("Keyboard", this::showKeyboardEntry));
+            content.add(createChoiceActionsRow());
 
             panel.add(content, new GridBagConstraints());
             return panel;
+        }
+
+        private JPanel createChoiceActionsRow() {
+            JPanel row = new JPanel(new GridBagLayout());
+            row.setOpaque(false);
+            row.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            GridBagConstraints constraints = new GridBagConstraints();
+            constraints.gridy = 0;
+            constraints.insets = new Insets(0, 0, 0, 18);
+            row.add(createChoiceActionButton("/icons/camera-steampunk.png", "Camera", this::showCameraCapturePanel), constraints);
+
+            constraints.insets = new Insets(0, 0, 0, 18);
+            row.add(createChoiceActionButton("/icons/keyboard-steampunk.png", "Keyboard", this::showKeyboardEntry), constraints);
+
+            constraints.insets = new Insets(0, 0, 0, 0);
+            row.add(createChoiceActionButton("/icons/sketchpad-steampunk.png", "Sketchpad", this::showSketchpadPanel), constraints);
+            return row;
         }
 
         private void showKeyboardEntry() {
@@ -178,6 +202,16 @@ public final class DesktopLauncher {
             panel.setLayout(new BorderLayout());
             panel.add(cameraStreamPanel, BorderLayout.CENTER);
             panel.add(bottomBar(createTextButton("Capture", this::captureCameraFrame)), BorderLayout.SOUTH);
+            showGameContent(panel);
+        }
+
+        private void showSketchpadPanel() {
+            SketchpadPanel sketchpadPanel = new SketchpadPanel();
+
+            JPanel panel = fullPanel();
+            panel.setLayout(new BorderLayout());
+            panel.add(sketchpadPanel, BorderLayout.CENTER);
+            panel.add(bottomBar(sketchpadControls(sketchpadPanel)), BorderLayout.SOUTH);
             showGameContent(panel);
         }
 
@@ -206,6 +240,10 @@ public final class DesktopLauncher {
                 WordChallenge challenge,
                 BufferedImage snapshot,
                 Rectangle selectedRegion) {
+            return challenge.expectedArabic();
+        }
+
+        private String processSketchpadDrawing(WordChallenge challenge, SketchpadPanel sketchpadPanel) {
             return challenge.expectedArabic();
         }
 
@@ -270,13 +308,30 @@ public final class DesktopLauncher {
             return row;
         }
 
+        private JButton createChoiceActionButton(String iconPath, String text, Runnable action) {
+            JButton button = new JButton(text, scaledIcon(iconPath, 118, 118));
+            button.setVerticalTextPosition(SwingConstants.BOTTOM);
+            button.setHorizontalTextPosition(SwingConstants.CENTER);
+            button.setPreferredSize(new Dimension(154, 172));
+            button.setMaximumSize(new Dimension(154, 172));
+            button.setFocusPainted(false);
+            button.setForeground(TEXT);
+            button.setOpaque(false);
+            button.setContentAreaFilled(false);
+            button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            button.setFont(button.getFont().deriveFont(Font.BOLD, 18f));
+            button.addActionListener(event -> action.run());
+            return button;
+        }
+
         private JButton iconButton(String iconPath, int size, Runnable action) {
             JButton button = new JButton(scaledIcon(iconPath, size, size));
             button.setPreferredSize(new Dimension(size, size));
             button.setMaximumSize(new Dimension(size, size));
             button.setFocusPainted(false);
-            button.setBorder(BorderFactory.createLineBorder(BRASS, 2));
+            button.setOpaque(false);
             button.setContentAreaFilled(false);
+            button.setBorder(BorderFactory.createEmptyBorder());
             button.addActionListener(event -> action.run());
             return button;
         }
@@ -301,11 +356,27 @@ public final class DesktopLauncher {
             return button;
         }
 
-        private JPanel bottomBar(JButton button) {
+        private JPanel sketchpadControls(SketchpadPanel sketchpadPanel) {
+            JPanel controls = new JPanel(new GridBagLayout());
+            controls.setOpaque(false);
+
+            GridBagConstraints constraints = new GridBagConstraints();
+            constraints.gridx = 0;
+            constraints.insets = new Insets(0, 0, 0, 12);
+            controls.add(createTextButton("Clear", sketchpadPanel::clear), constraints);
+
+            constraints.gridx = 1;
+            constraints.insets = new Insets(0, 0, 0, 0);
+            controls.add(createTextButton("Ready", () ->
+                    showResult(processSketchpadDrawing(currentChallenge, sketchpadPanel), new Rectangle())), constraints);
+            return controls;
+        }
+
+        private JPanel bottomBar(Component content) {
             JPanel bar = new JPanel(new GridBagLayout());
             bar.setBackground(new Color(24, 29, 38));
             bar.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
-            bar.add(button, new GridBagConstraints());
+            bar.add(content, new GridBagConstraints());
             return bar;
         }
 
@@ -341,6 +412,77 @@ public final class DesktopLauncher {
             label.setForeground(MUTED_TEXT);
             label.setFont(label.getFont().deriveFont(Font.BOLD, 18f));
             return label;
+        }
+    }
+
+    private static final class SketchpadPanel extends JPanel {
+        private final List<List<Point>> strokes = new ArrayList<>();
+        private List<Point> currentStroke;
+
+        SketchpadPanel() {
+            setBackground(new Color(239, 216, 167));
+            setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BRASS, 4),
+                    BorderFactory.createEmptyBorder(12, 12, 12, 12)));
+
+            MouseAdapter drawingHandler = new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent event) {
+                    currentStroke = new ArrayList<>();
+                    currentStroke.add(event.getPoint());
+                    strokes.add(currentStroke);
+                    repaint();
+                }
+
+                @Override
+                public void mouseDragged(MouseEvent event) {
+                    if (currentStroke != null) {
+                        currentStroke.add(event.getPoint());
+                        repaint();
+                    }
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent event) {
+                    if (currentStroke != null) {
+                        currentStroke.add(event.getPoint());
+                        currentStroke = null;
+                        repaint();
+                    }
+                }
+            };
+            addMouseListener(drawingHandler);
+            addMouseMotionListener(drawingHandler);
+        }
+
+        void clear() {
+            strokes.clear();
+            currentStroke = null;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+            Graphics2D graphics2D = (Graphics2D) graphics.create();
+            try {
+                graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                graphics2D.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                graphics2D.setColor(new Color(47, 32, 20));
+                for (List<Point> stroke : strokes) {
+                    paintStroke(graphics2D, stroke);
+                }
+            } finally {
+                graphics2D.dispose();
+            }
+        }
+
+        private void paintStroke(Graphics2D graphics2D, List<Point> stroke) {
+            for (int index = 1; index < stroke.size(); index++) {
+                Point from = stroke.get(index - 1);
+                Point to = stroke.get(index);
+                graphics2D.drawLine(from.x, from.y, to.x, to.y);
+            }
         }
     }
 

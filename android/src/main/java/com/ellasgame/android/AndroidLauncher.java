@@ -8,6 +8,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -138,11 +139,21 @@ public final class AndroidLauncher extends ComponentActivity {
         LinearLayout content = contentPanel();
         content.addView(textLabel(currentChallenge.hebrew(), 46f, TEXT, Typeface.BOLD));
         content.addView(spacer(30));
-        content.addView(textButton("Camera", view -> showCameraScreen()));
-        content.addView(spacer(14));
-        content.addView(textButton("Keyboard", view -> showKeyboardDialog()));
+        content.addView(choiceActionsRow());
         screen.addView(content);
         setContentView(screen);
+    }
+
+    private LinearLayout choiceActionsRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.addView(choiceButton(R.drawable.camera_steampunk, "Camera", view -> showCameraScreen()));
+        row.addView(horizontalSpacer(6));
+        row.addView(choiceButton(R.drawable.keyboard_steampunk, "Keyboard", view -> showKeyboardDialog()));
+        row.addView(horizontalSpacer(6));
+        row.addView(choiceButton(R.drawable.sketchpad_steampunk, "Sketchpad", view -> showSketchpadScreen()));
+        return row;
     }
 
     private void showKeyboardDialog() {
@@ -177,6 +188,17 @@ public final class AndroidLauncher extends ComponentActivity {
         startCamera();
     }
 
+    private void showSketchpadScreen() {
+        SketchpadView sketchpadView = new SketchpadView(this);
+
+        LinearLayout screen = fullPanel();
+        screen.setPadding(0, 0, 0, 0);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.addView(sketchpadView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        screen.addView(bottomBar(sketchpadControls(sketchpadView)));
+        setContentView(screen);
+    }
+
     private void capturePreviewBitmap() {
         if (cameraPreview == null || cameraPreview.getBitmap() == null) {
             Toast.makeText(this, "No camera frame is available yet.", Toast.LENGTH_SHORT).show();
@@ -204,6 +226,10 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private String processCapturedRegion(WordChallenge challenge, Bitmap snapshot, Rect selectedRegion) {
+        return challenge.expectedArabic();
+    }
+
+    private String processSketchpadDrawing(WordChallenge challenge, SketchpadView sketchpadView) {
         return challenge.expectedArabic();
     }
 
@@ -332,7 +358,31 @@ public final class AndroidLauncher extends ComponentActivity {
         button.setContentDescription(description);
         button.setScaleType(ImageView.ScaleType.FIT_CENTER);
         button.setPadding(dp(8), dp(8), dp(8), dp(8));
-        button.setBackground(buttonBackground());
+        button.setBackgroundColor(Color.TRANSPARENT);
+        return button;
+    }
+
+    private LinearLayout choiceButton(int drawableResource, String text, View.OnClickListener listener) {
+        LinearLayout button = new LinearLayout(this);
+        button.setOrientation(LinearLayout.VERTICAL);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(8), dp(8), dp(8), dp(8));
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setOnClickListener(listener);
+
+        ImageView image = new ImageView(this);
+        image.setImageResource(drawableResource);
+        image.setContentDescription(text);
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        button.addView(image, new LinearLayout.LayoutParams(dp(64), dp(64)));
+
+        TextView label = textLabel(text, 14f, TEXT, Typeface.BOLD);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        labelParams.setMargins(0, dp(8), 0, 0);
+        button.addView(label, labelParams);
+        button.setLayoutParams(new LinearLayout.LayoutParams(dp(84), dp(116)));
         return button;
     }
 
@@ -383,6 +433,17 @@ public final class AndroidLauncher extends ComponentActivity {
         return bar;
     }
 
+    private LinearLayout sketchpadControls(SketchpadView sketchpadView) {
+        LinearLayout controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.HORIZONTAL);
+        controls.setGravity(Gravity.CENTER);
+        controls.addView(textButton("Clear", view -> sketchpadView.clear()));
+        controls.addView(horizontalSpacer(12));
+        controls.addView(textButton("Ready", view ->
+                showResult(processSketchpadDrawing(currentChallenge, sketchpadView), new Rect())));
+        return controls;
+    }
+
     private TextView textLabel(String text, float size, int color, int typefaceStyle) {
         TextView label = new TextView(this);
         label.setText(text);
@@ -396,6 +457,12 @@ public final class AndroidLauncher extends ComponentActivity {
     private View spacer(int heightDp) {
         View spacer = new View(this);
         spacer.setLayoutParams(new LinearLayout.LayoutParams(1, dp(heightDp)));
+        return spacer;
+    }
+
+    private View horizontalSpacer(int widthDp) {
+        View spacer = new View(this);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(dp(widthDp), 1));
         return spacer;
     }
 
@@ -581,6 +648,68 @@ public final class AndroidLauncher extends ComponentActivity {
             return new PointF(
                     Math.max(imageBounds.left, Math.min(x, imageBounds.right)),
                     Math.max(imageBounds.top, Math.min(y, imageBounds.bottom)));
+        }
+    }
+
+    private final class SketchpadView extends View {
+        private final List<Path> strokes = new ArrayList<>();
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private Path currentStroke;
+
+        SketchpadView(ComponentActivity activity) {
+            super(activity);
+            paint.setColor(Color.rgb(47, 32, 20));
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(5));
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+            setBackgroundColor(Color.rgb(239, 216, 167));
+            setPadding(dp(12), dp(12), dp(12), dp(12));
+        }
+
+        void clear() {
+            strokes.clear();
+            currentStroke = null;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            for (Path stroke : strokes) {
+                canvas.drawPath(stroke, paint);
+            }
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN -> {
+                    currentStroke = new Path();
+                    currentStroke.moveTo(event.getX(), event.getY());
+                    strokes.add(currentStroke);
+                    invalidate();
+                    return true;
+                }
+                case MotionEvent.ACTION_MOVE -> {
+                    if (currentStroke != null) {
+                        currentStroke.lineTo(event.getX(), event.getY());
+                        invalidate();
+                    }
+                    return true;
+                }
+                case MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (currentStroke != null) {
+                        currentStroke.lineTo(event.getX(), event.getY());
+                        currentStroke = null;
+                        invalidate();
+                    }
+                    return true;
+                }
+                default -> {
+                    return super.onTouchEvent(event);
+                }
+            }
         }
     }
 }

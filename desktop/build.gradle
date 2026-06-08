@@ -11,6 +11,30 @@ application {
     mainClass = "com.ellasgame.desktop.DesktopLauncher"
 }
 
+def sharedIconSourceDir = rootProject.layout.projectDirectory.dir("assets/icons")
+def generatedSharedIconsDir = layout.buildDirectory.dir("generated/shared-icons/main")
+
+sourceSets {
+    main {
+        resources.srcDir(generatedSharedIconsDir)
+    }
+}
+
+tasks.register("copySharedIcons", Copy) {
+    group = "build"
+    description = "Copy shared icon assets into the desktop resource layout."
+
+    from(sharedIconSourceDir) {
+        include("*-steampunk.png")
+        into("icons")
+    }
+    into(generatedSharedIconsDir)
+}
+
+tasks.named("processResources") {
+    dependsOn("copySharedIcons")
+}
+
 tasks.register("prepareProfilingDirectory") {
     group = "application"
     description = "Create the profiling output directory before launching with JFR."
