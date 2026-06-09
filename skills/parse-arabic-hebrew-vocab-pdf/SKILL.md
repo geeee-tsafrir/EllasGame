@@ -18,6 +18,7 @@ Use this skill for the EllasGame vocabulary dictionary extraction from `/Users/g
 - Keep the user’s corrections authoritative. If the user corrects one cell, update that cell and show the full table again.
 - After every parser or table fix, rerun the page and print the full table, not only the corrected row.
 - When asked to write CSV, write under `lang_dict/lang_page_N.csv`.
+- Before presenting a reviewed table, perform a row-by-row QA pass against raw `pdfplumber` word coordinates for the page. Do not rely only on the parser output for Arabic diacritics or group headings.
 
 ## Output Schema
 
@@ -70,6 +71,8 @@ index Arabic – Hebrew
 ## Quality Rules
 
 - Arabic diacritics matter. Do not invent them when uncertain.
+- For each generated Arabic cell, inspect the corresponding raw PDF row tokens and compare base letters, spaces, slashes, plural markers, and visible diacritics. Fix obvious extraction artifacts before printing the table.
+- Pay special attention to missing internal vowels, shadda, final tanwin, split Hebrew words, swallowed group headings, and Arabic phrase spacing.
 - Do not add grammatical case endings or normalize Arabic articles into textbook forms unless those signs are clearly present in the PDF extraction or confirmed by the user.
 - If the extraction misses signs, prefer showing the table for user review rather than silently guessing.
 - Preserve user-confirmed corrections in later outputs.
@@ -102,7 +105,13 @@ The user corrected these:
 4. Detect group headings by underline and Hebrew-only text.
 5. Accumulate numbered items, including continuation rows.
 6. Convert singular/plural pairs into separate rows.
-7. Present a Markdown table to the user.
-8. Apply user corrections.
-9. When approved, write `lang_dict/lang_page_N.csv`.
-10. Validate the CSV with `csv.DictReader`.
+7. Run a manual QA pass over every row against raw PDF row tokens before printing:
+   - verify group heading boundaries;
+   - verify Hebrew spacing and continuations;
+   - verify Arabic base letters and phrase spacing;
+   - verify Arabic diacritics where the PDF extraction exposes them;
+   - normalize clear extraction artifacts consistently with prior approved pages.
+8. Present a Markdown table to the user.
+9. Apply user corrections.
+10. When approved, write `lang_dict/lang_page_N.csv`.
+11. Validate the CSV with `csv.DictReader`.
