@@ -51,6 +51,7 @@ import com.ellasgame.core.GameApp;
 import com.ellasgame.core.QuestionPrompt;
 import com.ellasgame.core.Result;
 import com.ellasgame.core.SessionStatistics;
+import com.ellasgame.core.TranslationDirection;
 import com.ellasgame.core.VocabularyDictionary;
 import com.ellasgame.core.VocabularyEntry;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -69,6 +70,7 @@ public final class AndroidLauncher extends ComponentActivity {
     private static final long STARTUP_SPLASH_MILLIS = 1000L;
     private static final String SETTINGS_NAME = "ellasgame_settings";
     private static final String CAMERA_KEY = "camera";
+    private static final String TRANSLATION_DIRECTION_KEY = "translation_direction";
     private static final String VOCABULARY_GROUPS_KEY = "vocabulary_groups";
     private static final String VOCABULARY_PAGES_KEY = "vocabulary_pages";
     private static final String BACK_CAMERA = "Back camera";
@@ -94,6 +96,8 @@ public final class AndroidLauncher extends ComponentActivity {
     private String selectedCamera = BACK_CAMERA;
     private List<String> selectedVocabularyGroups = List.of();
     private List<String> selectedVocabularyPages = List.of();
+    private TranslationDirection selectedTranslationDirection = TranslationDirection.HEBREW_TO_ARABIC;
+    private TranslationDirection currentQuestionDirection = TranslationDirection.HEBREW_TO_ARABIC;
     private VocabularyEntry currentChallenge;
     private TextToSpeech textToSpeech;
     private boolean speechReady;
@@ -106,6 +110,7 @@ public final class AndroidLauncher extends ComponentActivity {
         super.onCreate(savedInstanceState);
         configureSystemBars();
         selectedCamera = loadCameraSetting();
+        selectedTranslationDirection = loadTranslationDirectionSetting();
         selectedVocabularyGroups = loadVocabularyGroupSettings();
         selectedVocabularyPages = loadVocabularyPageSettings();
         initializeTextToSpeech();
@@ -224,6 +229,33 @@ public final class AndroidLauncher extends ComponentActivity {
         setContentView(menu);
     }
 
+    private LinearLayout directionSettingRow(Spinner spinner) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setMinimumWidth(dp(300));
+        row.setPadding(0, dp(6), 0, dp(6));
+
+        TextView label = textLabel("Questions", 22f, TEXT, Typeface.BOLD);
+        label.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        row.addView(label, new LinearLayout.LayoutParams(dp(130), ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        row.addView(spinner, new LinearLayout.LayoutParams(dp(180), ViewGroup.LayoutParams.WRAP_CONTENT));
+        return row;
+    }
+
+    private Spinner directionSpinner() {
+        Spinner spinner = new Spinner(this, Spinner.MODE_DROPDOWN);
+        ArrayAdapter<TranslationDirection> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                TranslationDirection.values());
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(indexOf(TranslationDirection.values(), selectedTranslationDirection));
+        return spinner;
+    }
+
     private LinearLayout menuActionRow(int iconResource, String text, View.OnClickListener listener) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -250,7 +282,17 @@ public final class AndroidLauncher extends ComponentActivity {
 
     private void startChallenge() {
         currentChallenge = randomChallenge();
+        currentQuestionDirection = resolvedQuestionDirection();
         showChoiceScreen();
+    }
+
+    private TranslationDirection resolvedQuestionDirection() {
+        if (selectedTranslationDirection != TranslationDirection.RANDOM_BOTH) {
+            return selectedTranslationDirection;
+        }
+        return random.nextBoolean()
+                ? TranslationDirection.HEBREW_TO_ARABIC
+                : TranslationDirection.ARABIC_TO_HEBREW;
     }
 
     private VocabularyEntry randomChallenge() {
@@ -284,9 +326,9 @@ public final class AndroidLauncher extends ComponentActivity {
         screen.setGravity(Gravity.CENTER);
 
         LinearLayout content = fullSizeFramePanel();
-        content.addView(hebrewQuestionLabel(QuestionPrompt.prefix(), 18f));
+        content.addView(questionLabel(questionPrefix(), 18f, currentQuestionDirection.asksHebrew()));
         content.addView(spacer(8));
-        content.addView(hebrewQuestionLabel(currentChallenge.hebrew(), 42f));
+        content.addView(questionLabel(questionWord(currentChallenge), 42f, true));
         content.addView(spacer(8));
         content.addView(hebrewQuestionLabel(challengeDetailText(currentChallenge), 20f));
         content.addView(spacer(16));
@@ -295,7 +337,29 @@ public final class AndroidLauncher extends ComponentActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(screen);
-        speakHebrew(QuestionPrompt.spoken(currentChallenge));
+        speakQuestion();
+    }
+
+    private String questionPrefix() {
+        if (currentQuestionDirection == TranslationDirection.ARABIC_TO_HEBREW) {
+            return "Translate to Hebrew";
+        }
+        return QuestionPrompt.prefix();
+    }
+
+    private String questionWord(VocabularyEntry challenge) {
+        if (currentQuestionDirection == TranslationDirection.ARABIC_TO_HEBREW) {
+            return challenge.arabic();
+        }
+        return challenge.hebrew();
+    }
+
+    private void speakQuestion() {
+        if (currentQuestionDirection == TranslationDirection.ARABIC_TO_HEBREW) {
+            speakArabic(currentChallenge.arabic());
+        } else {
+            speakHebrew(QuestionPrompt.spoken(currentChallenge));
+        }
     }
 
     private void speakHebrew(String text) {
@@ -339,7 +403,7 @@ public final class AndroidLauncher extends ComponentActivity {
         input.setSingleLine(true);
         input.setTextColor(Color.BLACK);
         new AlertDialog.Builder(this)
-                .setTitle("Arabic word")
+                .setTitle(currentQuestionDirection == TranslationDirection.ARABIC_TO_HEBREW ? "Hebrew word" : "Arabic word")
                 .setView(input)
                 .setPositiveButton("Ready", (dialog, which) -> showResult(input.getText().toString(), new Rect()))
                 .setNegativeButton("Cancel", null)
@@ -410,16 +474,31 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private String processCapturedRegion(VocabularyEntry challenge, Bitmap snapshot, Rect selectedRegion) {
-        return challenge.arabic();
+        return expectedAnswer(challenge);
     }
 
     private String processSketchpadDrawing(VocabularyEntry challenge, SketchpadView sketchpadView) {
+        return expectedAnswer(challenge);
+    }
+
+    private String expectedAnswer(VocabularyEntry challenge) {
+        if (currentQuestionDirection == TranslationDirection.ARABIC_TO_HEBREW) {
+            return challenge.hebrew();
+        }
         return challenge.arabic();
     }
 
-    private void showResult(String arabicWord, Rect selectedRegion) {
+    private void showResult(String answerText, Rect selectedRegion) {
         stopCamera();
-        ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(currentChallenge, arabicWord);
+        if (currentQuestionDirection == TranslationDirection.HEBREW_TO_ARABIC) {
+            showArabicResult(answerText, selectedRegion);
+        } else {
+            showHebrewResult(answerText, selectedRegion);
+        }
+    }
+
+    private void showArabicResult(String answerText, Rect selectedRegion) {
+        ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(currentChallenge, answerText);
         sessionStatistics.record(challengeDisplayText(currentChallenge), result.expectedText(), result);
 
         LinearLayout screen = fullPanel();
@@ -449,6 +528,39 @@ public final class AndroidLauncher extends ComponentActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(screen);
         speakArabic(result.expectedText());
+    }
+
+    private void showHebrewResult(String answerText, Rect selectedRegion) {
+        String expected = currentChallenge.hebrew();
+        int errors = normalizedTextDistance(expected, answerText);
+        boolean correct = errors == 0;
+        sessionStatistics.record(challengeDisplayText(currentChallenge), expected, errors, 0);
+
+        LinearLayout screen = fullPanel();
+        screen.setGravity(Gravity.CENTER);
+        LinearLayout content = fullSizeFramePanel();
+        content.addView(textLabel(challengeDisplayText(currentChallenge), 44f, TEXT, Typeface.BOLD));
+        content.addView(spacer(16));
+        content.addView(feedbackRow("Expected:", plainFeedbackLabel(expected, FEEDBACK_BLUE, true)));
+        content.addView(spacer(8));
+        content.addView(feedbackRow("User:", plainFeedbackLabel(answerText, correct ? FEEDBACK_BLUE : FEEDBACK_RED, true)));
+        content.addView(spacer(8));
+        content.addView(textLabel(correct ? "Result: Success" : "Result: " + errors + " errors", 20f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(spacer(8));
+        content.addView(textLabel("Characters: " + errors + " errors", 16f, MUTED_TEXT, Typeface.BOLD));
+        if (!selectedRegion.isEmpty()) {
+            content.addView(spacer(8));
+            content.addView(textLabel("Region: " + selectedRegion.width() + "x" + selectedRegion.height(), 16f, MUTED_TEXT, Typeface.BOLD));
+        }
+        content.addView(spacer(24));
+        content.addView(textButton("Again", view -> startChallenge()));
+        content.addView(spacer(12));
+        content.addView(textButton("Finish", view -> showSummaryScreen()));
+        screen.addView(content, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(screen);
+        speakHebrew(expected);
     }
 
     private void showSummaryScreen() {
@@ -498,6 +610,9 @@ public final class AndroidLauncher extends ComponentActivity {
         LinearLayout settingsLayout = new LinearLayout(this);
         settingsLayout.setOrientation(LinearLayout.VERTICAL);
         settingsLayout.setPadding(dp(20), dp(8), dp(20), 0);
+
+        Spinner directionSpinner = directionSpinner();
+        settingsLayout.addView(directionSettingRow(directionSpinner));
 
         LinearLayout cameraRow = new LinearLayout(this);
         cameraRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -616,6 +731,8 @@ public final class AndroidLauncher extends ComponentActivity {
                 .setTitle("Settings")
                 .setView(settingsScroll)
                 .setPositiveButton("Save", (dialog, which) -> {
+                    selectedTranslationDirection = (TranslationDirection) directionSpinner.getSelectedItem();
+                    saveTranslationDirectionSetting(selectedTranslationDirection);
                     selectedCamera = (String) cameraSpinner.getSelectedItem();
                     saveCameraSetting(selectedCamera);
                     selectedVocabularyGroups = selectedVocabularyGroupsFrom(allGroupsCheckbox, groupCheckboxes);
@@ -830,9 +947,28 @@ public final class AndroidLauncher extends ComponentActivity {
         return label;
     }
 
+    private TextView questionLabel(String text, float size, boolean rtl) {
+        TextView label = textLabel(text, size, TEXT, Typeface.BOLD);
+        label.setTextDirection(rtl ? View.TEXT_DIRECTION_RTL : View.TEXT_DIRECTION_LTR);
+        label.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        label.setGravity(Gravity.CENTER);
+        label.setIncludeFontPadding(true);
+        label.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        return label;
+    }
+
     private TextView expectedFeedbackLabel(ArabicGuessComparison.GuessComparison result) {
         TextView label = textLabel(result.expectedText(), 22f, FEEDBACK_BLUE, Typeface.BOLD);
         label.setTextDirection(View.TEXT_DIRECTION_RTL);
+        label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        return label;
+    }
+
+    private TextView plainFeedbackLabel(String text, int color, boolean rtl) {
+        TextView label = textLabel(text, 22f, color, Typeface.BOLD);
+        label.setTextDirection(rtl ? View.TEXT_DIRECTION_RTL : View.TEXT_DIRECTION_LTR);
         label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         return label;
     }
@@ -894,6 +1030,44 @@ public final class AndroidLauncher extends ComponentActivity {
         return FEEDBACK_BLUE;
     }
 
+    private int normalizedTextDistance(String expected, String actual) {
+        return levenshteinDistance(normalizeAnswerText(expected), normalizeAnswerText(actual));
+    }
+
+    private String normalizeAnswerText(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text
+                .replace("\u200e", "")
+                .replace("\u200f", "")
+                .trim()
+                .replaceAll("\\s+", " ");
+    }
+
+    private int levenshteinDistance(String expected, String actual) {
+        int[] previous = new int[actual.length() + 1];
+        int[] current = new int[actual.length() + 1];
+        for (int index = 0; index <= actual.length(); index++) {
+            previous[index] = index;
+        }
+        for (int expectedIndex = 1; expectedIndex <= expected.length(); expectedIndex++) {
+            current[0] = expectedIndex;
+            for (int actualIndex = 1; actualIndex <= actual.length(); actualIndex++) {
+                int substitutionCost = expected.charAt(expectedIndex - 1) == actual.charAt(actualIndex - 1) ? 0 : 1;
+                current[actualIndex] = Math.min(
+                        previous[actualIndex] + 1,
+                        Math.min(
+                                current[actualIndex - 1] + 1,
+                                previous[actualIndex - 1] + substitutionCost));
+            }
+            int[] nextPrevious = previous;
+            previous = current;
+            current = nextPrevious;
+        }
+        return previous[actual.length()];
+    }
+
     private View spacer(int heightDp) {
         View spacer = new View(this);
         spacer.setLayoutParams(new LinearLayout.LayoutParams(1, dp(heightDp)));
@@ -947,6 +1121,15 @@ public final class AndroidLauncher extends ComponentActivity {
         return 0;
     }
 
+    private int indexOf(TranslationDirection[] values, TranslationDirection value) {
+        for (int index = 0; index < values.length; index++) {
+            if (values[index] == value) {
+                return index;
+            }
+        }
+        return 0;
+    }
+
     private String loadCameraSetting() {
         SharedPreferences preferences = getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE);
         return preferences.getString(CAMERA_KEY, BACK_CAMERA);
@@ -956,6 +1139,20 @@ public final class AndroidLauncher extends ComponentActivity {
         getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE)
                 .edit()
                 .putString(CAMERA_KEY, camera)
+                .apply();
+    }
+
+    private TranslationDirection loadTranslationDirectionSetting() {
+        SharedPreferences preferences = getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE);
+        return TranslationDirection.fromStorageValue(preferences.getString(
+                TRANSLATION_DIRECTION_KEY,
+                TranslationDirection.HEBREW_TO_ARABIC.storageValue()));
+    }
+
+    private void saveTranslationDirectionSetting(TranslationDirection direction) {
+        getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE)
+                .edit()
+                .putString(TRANSLATION_DIRECTION_KEY, direction.storageValue())
                 .apply();
     }
 
@@ -1036,7 +1233,7 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private String challengeDisplayText(VocabularyEntry challenge) {
-        return challenge.hebrew() + " (" + challengeDetailText(challenge) + ")";
+        return questionWord(challenge) + " (" + challengeDetailText(challenge) + ")";
     }
 
     private String challengeDetailText(VocabularyEntry challenge) {

@@ -4,7 +4,11 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public record AppSettings(String camera, List<String> vocabularyGroups, List<String> vocabularyPages) implements Serializable {
+public record AppSettings(
+        String camera,
+        List<String> vocabularyGroups,
+        List<String> vocabularyPages,
+        TranslationDirection translationDirection) implements Serializable {
     public static final String DEFAULT_CAMERA = "Default camera";
 
     public AppSettings {
@@ -13,22 +17,27 @@ public record AppSettings(String camera, List<String> vocabularyGroups, List<Str
         }
         vocabularyGroups = vocabularyGroups == null ? List.of() : List.copyOf(cleanGroups(vocabularyGroups));
         vocabularyPages = vocabularyPages == null ? List.of() : List.copyOf(cleanGroups(vocabularyPages));
+        translationDirection = translationDirection == null ? TranslationDirection.HEBREW_TO_ARABIC : translationDirection;
     }
 
     public static AppSettings defaults() {
-        return new AppSettings(DEFAULT_CAMERA, List.of(), List.of());
+        return new AppSettings(DEFAULT_CAMERA, List.of(), List.of(), TranslationDirection.HEBREW_TO_ARABIC);
     }
 
     public AppSettings withCamera(String newCamera) {
-        return new AppSettings(newCamera, vocabularyGroups, vocabularyPages);
+        return new AppSettings(newCamera, vocabularyGroups, vocabularyPages, translationDirection);
     }
 
     public AppSettings withVocabularyGroups(List<String> newVocabularyGroups) {
-        return new AppSettings(camera, newVocabularyGroups, vocabularyPages);
+        return new AppSettings(camera, newVocabularyGroups, vocabularyPages, translationDirection);
     }
 
     public AppSettings withVocabularyPages(List<String> newVocabularyPages) {
-        return new AppSettings(camera, vocabularyGroups, newVocabularyPages);
+        return new AppSettings(camera, vocabularyGroups, newVocabularyPages, translationDirection);
+    }
+
+    public AppSettings withTranslationDirection(TranslationDirection newTranslationDirection) {
+        return new AppSettings(camera, vocabularyGroups, vocabularyPages, newTranslationDirection);
     }
 
     public boolean usesAllVocabularyGroups() {

@@ -14,11 +14,15 @@ public final class SessionStatistics {
     }
 
     public void record(String promptWord, String expectedWord, ArabicGuessComparison.GuessComparison comparison) {
+        record(promptWord, expectedWord, comparison.baseLetterErrors(), comparison.signErrors());
+    }
+
+    public void record(String promptWord, String expectedWord, int characterErrors, int signErrors) {
         attempts.add(new Attempt(
                 promptWord,
                 expectedWord,
-                comparison.baseLetterErrors(),
-                comparison.signErrors()));
+                characterErrors,
+                signErrors));
     }
 
     public Summary summary() {
