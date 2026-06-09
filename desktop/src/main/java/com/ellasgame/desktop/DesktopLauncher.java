@@ -565,20 +565,25 @@ public final class DesktopLauncher {
                     .append("'>User:</span></td><td align='right' width='140'><span dir='rtl'>");
             for (ArabicGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
                 html.append("<span style='color:")
-                        .append(htmlColor(character.baseCorrect() ? FEEDBACK_BLUE : FEEDBACK_RED))
+                        .append(htmlColor(feedbackColor(character)))
                         .append("'>")
-                        .append(escapeHtml(character.baseText()))
+                        .append(escapeHtml(character.text()))
                         .append("</span>");
-                for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
-                    html.append("<span style='color:")
-                            .append(htmlColor(sign.correct() ? FEEDBACK_BLUE : FEEDBACK_RED))
-                            .append("'>")
-                            .append(escapeHtml(sign.text()))
-                        .append("</span>");
-                }
             }
             html.append("</span></td></tr></table></html>");
             return html.toString();
+        }
+
+        private Color feedbackColor(ArabicGuessComparison.UserCharacterFeedback character) {
+            if (!character.baseCorrect()) {
+                return FEEDBACK_RED;
+            }
+            for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
+                if (!sign.correct()) {
+                    return FEEDBACK_RED;
+                }
+            }
+            return FEEDBACK_BLUE;
         }
 
         private String htmlColor(Color color) {

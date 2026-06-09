@@ -836,31 +836,19 @@ public final class AndroidLauncher extends ComponentActivity {
     private TextView userFeedbackLabel(ArabicGuessComparison.GuessComparison result) {
         StringBuilder text = new StringBuilder();
         for (ArabicGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
-            text.append(character.baseText());
-            for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
-                text.append(sign.text());
-            }
+            text.append(character.text());
         }
 
         SpannableString feedback = new SpannableString(text.toString());
         int offset = 0;
         for (ArabicGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
-            int end = offset + character.baseText().length();
+            int end = offset + character.text().length();
             feedback.setSpan(
-                    new ForegroundColorSpan(character.baseCorrect() ? FEEDBACK_BLUE : FEEDBACK_RED),
+                    new ForegroundColorSpan(feedbackColor(character)),
                     offset,
                     end,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             offset = end;
-            for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
-                end = offset + sign.text().length();
-                feedback.setSpan(
-                        new ForegroundColorSpan(sign.correct() ? FEEDBACK_BLUE : FEEDBACK_RED),
-                        offset,
-                        end,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                offset = end;
-            }
         }
 
         TextView label = textLabel("", 22f, MUTED_TEXT, Typeface.BOLD);
@@ -868,6 +856,18 @@ public final class AndroidLauncher extends ComponentActivity {
         label.setTextDirection(View.TEXT_DIRECTION_RTL);
         label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         return label;
+    }
+
+    private int feedbackColor(ArabicGuessComparison.UserCharacterFeedback character) {
+        if (!character.baseCorrect()) {
+            return FEEDBACK_RED;
+        }
+        for (ArabicGuessComparison.UserSignFeedback sign : character.signs()) {
+            if (!sign.correct()) {
+                return FEEDBACK_RED;
+            }
+        }
+        return FEEDBACK_BLUE;
     }
 
     private View spacer(int heightDp) {
