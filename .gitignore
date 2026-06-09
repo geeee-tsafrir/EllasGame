@@ -68,6 +68,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # Local Python model experiments
 script/**/.venv/
 script/**/__pycache__/
