@@ -66,6 +66,7 @@ import java.util.concurrent.Executor;
 
 public final class AndroidLauncher extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 1001;
+    private static final long STARTUP_SPLASH_MILLIS = 1000L;
     private static final String SETTINGS_NAME = "ellasgame_settings";
     private static final String CAMERA_KEY = "camera";
     private static final String VOCABULARY_GROUPS_KEY = "vocabulary_groups";
@@ -109,7 +110,7 @@ public final class AndroidLauncher extends ComponentActivity {
         selectedVocabularyPages = loadVocabularyPageSettings();
         initializeTextToSpeech();
         gameApp.start();
-        showMenuScreen();
+        showStartupSplash();
     }
 
     @Override
@@ -178,6 +179,29 @@ public final class AndroidLauncher extends ComponentActivity {
         Window window = getWindow();
         window.setStatusBarColor(Color.rgb(16, 21, 28));
         window.setNavigationBarColor(Color.rgb(16, 21, 28));
+    }
+
+    private void showStartupSplash() {
+        FrameLayout screen = new FrameLayout(this);
+        screen.setBackgroundColor(BACKGROUND);
+        screen.setLayoutParams(matchParent());
+        screen.setFitsSystemWindows(true);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.mipmap.ic_launcher);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        icon.setAdjustViewBounds(true);
+        icon.setContentDescription(getString(R.string.app_name));
+        int horizontalPadding = dp(16);
+        int verticalPadding = dp(56);
+        icon.setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding);
+
+        screen.addView(icon, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER));
+        setContentView(screen);
+        mainHandler.postDelayed(this::showMenuScreen, STARTUP_SPLASH_MILLIS);
     }
 
     private void showMenuScreen() {
