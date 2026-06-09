@@ -236,20 +236,22 @@ def parse_item_words(words: list[dict], group: str | None) -> list[ParsedItem]:
         return []
 
     single_arabic, plural_arabic = split_arabic_number_forms(arabic_tokens)
+    single_arabic, single_arabic_alias = split_arabic_alias_forms(single_arabic)
     gender_items = split_gender_forms(group, hebrew, clean_arabic(single_arabic))
     if gender_items:
         return gender_items
 
     if plural_arabic:
+        plural_arabic, plural_arabic_alias = split_arabic_alias_forms(plural_arabic)
         clean_single = clean_arabic(single_arabic)
         clean_plural = expand_plural_suffix(clean_single, clean_arabic(plural_arabic))
         single_hebrew, plural_hebrew = split_hebrew_number_forms(hebrew)
         return [
-            ParsedItem(group, "single", "N/A", single_hebrew, clean_single),
-            ParsedItem(group, "plural", "N/A", plural_hebrew, clean_plural),
+            ParsedItem(group, "single", "N/A", single_hebrew, clean_single, clean_arabic(single_arabic_alias)),
+            ParsedItem(group, "plural", "N/A", plural_hebrew, clean_plural, clean_arabic(plural_arabic_alias)),
         ]
 
-    return [ParsedItem(group, "single", "N/A", hebrew, clean_arabic(single_arabic))]
+    return [ParsedItem(group, "single", "N/A", hebrew, clean_arabic(single_arabic), clean_arabic(single_arabic_alias))]
 
 
 def split_hebrew_number_forms(hebrew: str) -> tuple[str, str]:
@@ -260,11 +262,11 @@ def split_hebrew_number_forms(hebrew: str) -> tuple[str, str]:
 
 def expand_plural_suffix(single: str, plural: str) -> str:
     clean_plural = plural.replace(RTL_MARK, "")
-    if clean_plural in {"وَنَََ", "ون"}:
+    if clean_plural in {"وَنَََ", "ون", "ونَ"}:
         clean_single = single.replace(RTL_MARK, "")
         return RTL_MARK + normalize_arabic_text(clean_single + "ون")
 
-    if clean_plural not in {"أََتَ", "ات"}:
+    if clean_plural not in {"أََتَ", "أَت", "ات"}:
         return plural
 
     clean_single = single.replace(RTL_MARK, "")
@@ -314,7 +316,7 @@ def split_item_tokens(tokens: list[str]) -> tuple[list[str], list[str]]:
 
         if on_hebrew_side:
             hebrew_tokens.append(token)
-        elif is_plural_marker(token) or ARABIC_RE.search(token):
+        elif token == "=" or is_plural_marker(token) or ARABIC_RE.search(token):
             arabic_tokens.append(token)
 
     return arabic_tokens, hebrew_tokens
@@ -364,6 +366,16 @@ def split_arabic_number_forms(tokens: list[str]) -> tuple[list[str], list[str]]:
     return single, plural
 
 
+def split_arabic_alias_forms(tokens: list[str]) -> tuple[list[str], list[str]]:
+    if "=" not in tokens:
+        return tokens, []
+
+    marker_index = tokens.index("=")
+    primary = [token for token in tokens[:marker_index] if token != "="]
+    alias = [token for token in tokens[marker_index + 1:] if token != "="]
+    return primary, alias
+
+
 def is_plural_marker(token: str) -> bool:
     normalized = "".join(
         character for character in token.strip()
@@ -404,12 +416,20 @@ def clean_hebrew(tokens: Iterable[str]) -> str:
         "הקליט ה": "הקליטה",
         "סוכנו ת": "סוכנות",
         "היהודי ת": "היהודית",
+        "מא ה": "מאה",
+        "ֶא ֶל ף": "אֶלֶף",
+        "ֶד ֶל ק": "דֶלֶק",
+        "מוסלמ י": "מוסלמי",
+        "הסכ ם": "הסכם",
+        "נמצ א": "נמצא",
         "ע ל": "על",
         "הוכפ ל": "הוכפל",
         "פנ ט": "נפט",
         "נפ ט": "נפט",
         "כל סומך רבים)": "כל (+ סומך רבים)",
         "שמר, למד": "שמר, למד בעל-פה",
+        "החליט ל…": "החליט ל.",
+        "ניסה ל…": "ניסה ל.",
         "ה ם": "הם",
         "ה ן": "הן",
     }
@@ -429,6 +449,8 @@ def clean_arabic(tokens: Iterable[str]) -> str:
     pending_marks = ""
 
     for token in tokens:
+        if token == "=":
+            continue
         if not ARABIC_RE.search(token):
             continue
         if ARABIC_DIACRITIC_RE.match(token):
@@ -441,7 +463,8 @@ def clean_arabic(tokens: Iterable[str]) -> str:
             pending_marks = ""
         fixed.append(fixed_token)
 
-    return RTL_MARK + normalize_arabic_text(clean_spaces("".join(fixed)))
+    cleaned = normalize_arabic_text(clean_spaces("".join(fixed)))
+    return RTL_MARK + cleaned if cleaned else "N/A"
 
 
 def normalize_arabic_text(text: str) -> str:
@@ -469,6 +492,37 @@ def normalize_arabic_text(text: str) -> str:
         "فَهَم": "فَهِمَ",
         "كَبرَ": "كَبُرَ",
         "وقََفَ": "وَقَفَ",
+        "مئَةْ": "مِئَة",
+        "ألَف": "أَلْف",
+        "أَلَف": "آلَاف",
+        "مَلْيَون": "مِلْيُون",
+        "مَليََيَن": "مَلَايِين",
+        "وقوُد": "وَقُود",
+        "مَحْروقاَت": "مَحْرُوقَات",
+        "تجاَرة": "تِجَارَة",
+        "مُسلم": "مُسْلِم",
+        "مُسْلِمون": "مُسْلِمُون",
+        "مُسلمون": "مُسْلِمُون",
+        "أَتِّفاقَية": "إِتِّفَاقِيَّة",
+        "أَتِّفاقَ": "إِتِّفَاق",
+        "اِتِّفَاقية": "إِتِّفَاقِيَّة",
+        "مَوجَود": "مَوْجُود",
+        "ألرأهنَ": "أَلرَّاهِن",
+        "مُستحيلَ": "مُسْتَحِيل",
+        "منَٱلْمستَحيلأنَ": "مِنَ ٱلْمُسْتَحِيل أَنْ",
+        "تجاَريَ": "تِجَارِيّ",
+        "بَلَديَ": "بَلَدِيّ",
+        "هَربَ": "هَرَّبَ",
+        "قَررَ+َأنَيَفْعَلَ": "قَرَّرَ",
+        "حاَولَ+َأنَيَفْعَلََ": "حَاوَلَ",
+        "أعْلَنَعَنَ": "أَعْلَنَ",
+        "أرْسلأََلَىَ/َلَ": "أَرْسَلَ إِلَى",
+        "أبْلَغَبَ": "أَبْلَغَ",
+        "أنْتَظَرَ": "اِنْتَظَرَ",
+        "أعْتَقَلَ": "اِعْتَقَلَ",
+        "أحْبطَ": "أَحْبَطَ",
+        "اِنْتَظَرَ": "إِنْتَظَرَ",
+        "اِعْتَقَلَ": "إِعْتَقَلَ",
         "وزأَرةَٱلَستيعََابَ": "وِزَارَة ٱلِٱسْتِيعَاب",
         "وكَاَلةَ": "وِكَالَة",
         "وكَاَلات": "وِكَالات",
@@ -558,7 +612,7 @@ def reverse_arabic_token(token: str) -> str:
     for index, letter in enumerate(reversed_letters):
         marks = mark_groups[index] if index < len(mark_groups) else ""
         rebuilt.append(letter + marks)
-    if pending_marks:
+    if pending_marks and token[0] not in ARABIC_DIACRITIC_CHARS:
         rebuilt[-1] += pending_marks
     return "".join(rebuilt)
 
@@ -566,7 +620,14 @@ def reverse_arabic_token(token: str) -> str:
 def add_marks_to_first_character(token: str, marks: str) -> str:
     if not token:
         return marks
-    return token[0] + marks + token[1:]
+    existing_marks = ""
+    index = 1
+    while index < len(token) and token[index] in ARABIC_DIACRITIC_CHARS:
+        existing_marks += token[index]
+        index += 1
+
+    new_marks = "".join(mark for mark in marks if mark not in existing_marks)
+    return token[0] + existing_marks + new_marks + token[index:]
 
 
 def clean_spaces(text: str) -> str:
