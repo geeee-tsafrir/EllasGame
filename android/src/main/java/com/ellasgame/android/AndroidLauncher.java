@@ -232,15 +232,14 @@ public final class AndroidLauncher extends ComponentActivity {
     private LinearLayout directionSettingRow(Spinner spinner) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
-        row.setMinimumWidth(dp(300));
-        row.setPadding(0, dp(6), 0, dp(6));
+        row.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView label = textLabel("Questions", 22f, TEXT, Typeface.BOLD);
-        label.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-        row.addView(label, new LinearLayout.LayoutParams(dp(130), ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView label = new TextView(this);
+        label.setText("Questions");
+        label.setTextSize(16f);
+        row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        row.addView(spinner, new LinearLayout.LayoutParams(dp(180), ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.addView(spinner, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f));
         return row;
     }
 
@@ -254,6 +253,23 @@ public final class AndroidLauncher extends ComponentActivity {
         spinner.setAdapter(adapter);
         spinner.setSelection(indexOf(TranslationDirection.values(), selectedTranslationDirection));
         return spinner;
+    }
+
+    private TextView foldHeader(String title, View content) {
+        TextView header = new TextView(this);
+        header.setTextSize(16f);
+        header.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        updateFoldHeaderText(header, title, content.getVisibility() == View.VISIBLE);
+        header.setOnClickListener(view -> {
+            boolean expanded = content.getVisibility() != View.VISIBLE;
+            content.setVisibility(expanded ? View.VISIBLE : View.GONE);
+            updateFoldHeaderText(header, title, expanded);
+        });
+        return header;
+    }
+
+    private void updateFoldHeaderText(TextView header, String title, boolean expanded) {
+        header.setText((expanded ? "- " : "+ ") + title);
     }
 
     private LinearLayout menuActionRow(int iconResource, String text, View.OnClickListener listener) {
@@ -636,19 +652,20 @@ public final class AndroidLauncher extends ComponentActivity {
         cameraSpinner.setSelection(indexOf(cameraOptions, selectedCamera));
         cameraRow.addView(cameraSpinner, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f));
 
-        TextView groupsLabel = new TextView(this);
-        groupsLabel.setText("Groups");
-        groupsLabel.setTextSize(16f);
+        LinearLayout groupsContent = new LinearLayout(this);
+        groupsContent.setOrientation(LinearLayout.VERTICAL);
+        groupsContent.setVisibility(View.GONE);
         LinearLayout.LayoutParams groupsLabelParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         groupsLabelParams.setMargins(0, dp(18), 0, dp(6));
-        settingsLayout.addView(groupsLabel, groupsLabelParams);
+        settingsLayout.addView(foldHeader("Groups", groupsContent), groupsLabelParams);
+        settingsLayout.addView(groupsContent);
 
         CheckBox allGroupsCheckbox = new CheckBox(this);
         allGroupsCheckbox.setText("All groups");
         allGroupsCheckbox.setChecked(selectedVocabularyGroups.isEmpty());
-        settingsLayout.addView(allGroupsCheckbox);
+        groupsContent.addView(allGroupsCheckbox);
 
         List<CheckBox> groupCheckboxes = new ArrayList<>();
         Set<String> selectedGroups = new LinkedHashSet<>(selectedVocabularyGroups);
@@ -657,7 +674,7 @@ public final class AndroidLauncher extends ComponentActivity {
             checkbox.setText(group);
             checkbox.setChecked(selectedVocabularyGroups.isEmpty() || selectedGroups.contains(group));
             groupCheckboxes.add(checkbox);
-            settingsLayout.addView(checkbox);
+            groupsContent.addView(checkbox);
         }
         boolean[] updatingGroupCheckboxes = {false};
         allGroupsCheckbox.setOnCheckedChangeListener((button, checked) -> {
@@ -680,19 +697,20 @@ public final class AndroidLauncher extends ComponentActivity {
             });
         }
 
-        TextView pagesLabel = new TextView(this);
-        pagesLabel.setText("Pages");
-        pagesLabel.setTextSize(16f);
+        LinearLayout pagesContent = new LinearLayout(this);
+        pagesContent.setOrientation(LinearLayout.VERTICAL);
+        pagesContent.setVisibility(View.GONE);
         LinearLayout.LayoutParams pagesLabelParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         pagesLabelParams.setMargins(0, dp(18), 0, dp(6));
-        settingsLayout.addView(pagesLabel, pagesLabelParams);
+        settingsLayout.addView(foldHeader("Pages", pagesContent), pagesLabelParams);
+        settingsLayout.addView(pagesContent);
 
         CheckBox allPagesCheckbox = new CheckBox(this);
         allPagesCheckbox.setText("All pages");
         allPagesCheckbox.setChecked(selectedVocabularyPages.isEmpty());
-        settingsLayout.addView(allPagesCheckbox);
+        pagesContent.addView(allPagesCheckbox);
 
         List<CheckBox> pageCheckboxes = new ArrayList<>();
         Set<String> selectedPages = new LinkedHashSet<>(selectedVocabularyPages);
@@ -701,7 +719,7 @@ public final class AndroidLauncher extends ComponentActivity {
             checkbox.setText(page);
             checkbox.setChecked(selectedVocabularyPages.isEmpty() || selectedPages.contains(page));
             pageCheckboxes.add(checkbox);
-            settingsLayout.addView(checkbox);
+            pagesContent.addView(checkbox);
         }
         boolean[] updatingPageCheckboxes = {false};
         allPagesCheckbox.setOnCheckedChangeListener((button, checked) -> {
