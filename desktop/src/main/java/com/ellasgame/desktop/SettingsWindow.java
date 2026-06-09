@@ -14,17 +14,23 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 
 public final class SettingsWindow {
@@ -33,7 +39,12 @@ public final class SettingsWindow {
     private SettingsWindow() {
     }
 
-    public static void show(JFrame owner, DesktopCameraOptions cameraOptions, SettingsJsonStore settingsStore) {
+    public static void show(
+            JFrame owner,
+            DesktopCameraOptions cameraOptions,
+            SettingsJsonStore settingsStore,
+            List<String> vocabularyGroups,
+            List<String> vocabularyPages) {
         if (settingsDialog != null && settingsDialog.isDisplayable()) {
             settingsDialog.toFront();
             settingsDialog.requestFocus();
@@ -42,13 +53,18 @@ public final class SettingsWindow {
 
         AppSettings loadedSettings = loadSettings(settingsStore);
         Result<List<String>, String> currentCameraOptions = cameraOptions.findCameraOptions();
-        SettingsContent settingsContent = createContent(currentCameraOptions, loadedSettings, cameraOptions);
+        SettingsContent settingsContent = createContent(
+                currentCameraOptions,
+                loadedSettings,
+                cameraOptions,
+                vocabularyGroups,
+                vocabularyPages);
 
         settingsDialog = new JDialog(owner, "Settings", Dialog.ModalityType.APPLICATION_MODAL);
         settingsDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         settingsDialog.setContentPane(settingsContent.panel());
-        settingsDialog.setSize(420, 320);
-        settingsDialog.setMinimumSize(new Dimension(360, 260));
+        settingsDialog.setSize(440, 430);
+        settingsDialog.setMinimumSize(new Dimension(380, 360));
         settingsDialog.setLocationRelativeTo(owner);
         settingsDialog.addWindowListener(new WindowAdapter() {
             @Override
@@ -83,7 +99,9 @@ public final class SettingsWindow {
     private static SettingsContent createContent(
             Result<List<String>, String> cameraOptions,
             AppSettings settings,
-            DesktopCameraOptions cameraValidator) {
+            DesktopCameraOptions cameraValidator,
+            List<String> vocabularyGroups,
+            List<String> vocabularyPages) {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(new Color(35, 42, 54));
         panel.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
@@ -93,7 +111,15 @@ public final class SettingsWindow {
         title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
 
         JComboBox<String> cameraSelector = createCameraSelector(cameraOptions, settings.camera());
-        JPanel settingsTable = createSettingsTable(cameraSelector);
+        VocabularyCheckboxSelector vocabularyGroupSelector = createVocabularyCheckboxSelector(
+                "All groups",
+                vocabularyGroups,
+                settings.vocabularyGroups());
+        VocabularyCheckboxSelector vocabularyPageSelector = createVocabularyCheckboxSelector(
+                "All pages",
+                vocabularyPages,
+                settings.vocabularyPages());
+        JPanel settingsTable = createSettingsTable(cameraSelector, vocabularyGroupSelector.panel(), vocabularyPageSelector.panel());
 
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
@@ -109,18 +135,20 @@ public final class SettingsWindow {
         constraints.insets = new Insets(0, 0, 0, 0);
         panel.add(settingsTable, constraints);
 
-        return new SettingsContent(panel, cameraSelector, cameraValidator);
+        return new SettingsContent(panel, cameraSelector, cameraValidator, vocabularyGroupSelector, vocabularyPageSelector);
     }
 
-    private static JPanel createSettingsTable(JComboBox<String> cameraSelector) {
+    private static JPanel createSettingsTable(JComboBox<String> cameraSelector, Component groupSelector, Component pageSelector) {
         JPanel table = new JPanel(new GridBagLayout());
         table.setOpaque(false);
 
         addSettingsRow(table, 0, "Camera", cameraSelector);
+        addSettingsRow(table, 1, "Groups", groupSelector);
+        addSettingsRow(table, 2, "Pages", pageSelector);
 
         GridBagConstraints fillerConstraints = new GridBagConstraints();
         fillerConstraints.gridx = 0;
-        fillerConstraints.gridy = 1;
+        fillerConstraints.gridy = 3;
         fillerConstraints.gridwidth = 2;
         fillerConstraints.weighty = 1.0;
         JPanel filler = new JPanel();
@@ -196,10 +224,69 @@ public final class SettingsWindow {
         return comboBox.getItemAt(0);
     }
 
+    private static VocabularyCheckboxSelector createVocabularyCheckboxSelector(
+            String allLabel,
+            List<String> values,
+            List<String> selectedValues) {
+        JCheckBox allValues = styledCheckBox(allLabel, selectedValues == null || selectedValues.isEmpty());
+        JPanel checkboxPanel = new JPanel();
+        checkboxPanel.setOpaque(false);
+        checkboxPanel.setLayout(new BoxLayout(checkboxPanel, BoxLayout.Y_AXIS));
+        checkboxPanel.add(allValues);
+
+        List<JCheckBox> valueCheckboxes = new ArrayList<>();
+        Set<String> selected = selectedValues == null ? Set.of() : new LinkedHashSet<>(selectedValues);
+        for (String value : values) {
+            JCheckBox checkbox = styledCheckBox(value, allValues.isSelected() || selected.contains(value));
+            valueCheckboxes.add(checkbox);
+            checkboxPanel.add(checkbox);
+        }
+
+        boolean[] updatingValueCheckboxes = {false};
+        allValues.addActionListener(event -> {
+            if (updatingValueCheckboxes[0]) {
+                return;
+            }
+            boolean selectedAll = allValues.isSelected();
+            for (JCheckBox checkbox : valueCheckboxes) {
+                checkbox.setSelected(selectedAll);
+            }
+        });
+        for (JCheckBox checkbox : valueCheckboxes) {
+            checkbox.addActionListener(event -> {
+                if (updatingValueCheckboxes[0] || !allValues.isSelected()) {
+                    return;
+                }
+
+                updatingValueCheckboxes[0] = true;
+                allValues.setSelected(false);
+                updatingValueCheckboxes[0] = false;
+            });
+        }
+
+        JScrollPane scrollPane = new JScrollPane(checkboxPanel);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(18, 22, 30)));
+        scrollPane.setPreferredSize(new Dimension(280, 96));
+        scrollPane.getViewport().setBackground(new Color(24, 29, 38));
+        return new VocabularyCheckboxSelector(scrollPane, allValues, valueCheckboxes);
+    }
+
+    private static JCheckBox styledCheckBox(String text, boolean selected) {
+        JCheckBox checkbox = new JCheckBox(text, selected);
+        checkbox.setOpaque(true);
+        checkbox.setBackground(new Color(24, 29, 38));
+        checkbox.setForeground(new Color(235, 240, 246));
+        checkbox.setFont(checkbox.getFont().deriveFont(Font.BOLD, 13f));
+        checkbox.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        return checkbox;
+    }
+
     private record SettingsContent(
             JPanel panel,
             JComboBox<String> cameraSelector,
-            DesktopCameraOptions cameraValidator) {
+            DesktopCameraOptions cameraValidator,
+            VocabularyCheckboxSelector vocabularyGroupSelector,
+            VocabularyCheckboxSelector vocabularyPageSelector) {
         AppSettings toAppSettings() {
             Object selectedCamera = cameraSelector.getSelectedItem();
             if (selectedCamera == null) {
@@ -207,7 +294,29 @@ public final class SettingsWindow {
             }
 
             String validCameraOption = cameraValidator.validCameraOrDefault(selectedCamera.toString());
-            return ApplicationSettings.current().withCamera(validCameraOption);
+            return ApplicationSettings.current()
+                    .withCamera(validCameraOption)
+                    .withVocabularyGroups(vocabularyGroupSelector.selectedValues())
+                    .withVocabularyPages(vocabularyPageSelector.selectedValues());
+        }
+    }
+
+    private record VocabularyCheckboxSelector(
+            Component panel,
+            JCheckBox allValues,
+            List<JCheckBox> valueCheckboxes) {
+        List<String> selectedValues() {
+            if (allValues.isSelected()) {
+                return List.of();
+            }
+
+            List<String> selectedValues = new ArrayList<>();
+            for (JCheckBox checkbox : valueCheckboxes) {
+                if (checkbox.isSelected()) {
+                    selectedValues.add(checkbox.getText());
+                }
+            }
+            return selectedValues;
         }
     }
 

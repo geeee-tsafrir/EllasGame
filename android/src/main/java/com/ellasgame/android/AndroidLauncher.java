@@ -28,11 +28,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -47,13 +49,18 @@ import androidx.camera.view.PreviewView;
 import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.GameApp;
 import com.ellasgame.core.QuestionPrompt;
+import com.ellasgame.core.Result;
 import com.ellasgame.core.SessionStatistics;
+import com.ellasgame.core.VocabularyDictionary;
+import com.ellasgame.core.VocabularyEntry;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
@@ -61,6 +68,8 @@ public final class AndroidLauncher extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 1001;
     private static final String SETTINGS_NAME = "ellasgame_settings";
     private static final String CAMERA_KEY = "camera";
+    private static final String VOCABULARY_GROUPS_KEY = "vocabulary_groups";
+    private static final String VOCABULARY_PAGES_KEY = "vocabulary_pages";
     private static final String BACK_CAMERA = "Back camera";
     private static final String FRONT_CAMERA = "Front camera";
     private static final int BACKGROUND = Color.rgb(19, 25, 33);
@@ -76,12 +85,15 @@ public final class AndroidLauncher extends ComponentActivity {
     private final Executor mainExecutor = command -> mainHandler.post(command);
     private final Random random = new Random();
     private final SessionStatistics sessionStatistics = new SessionStatistics();
+    private final VocabularyDictionary vocabularyDictionary = loadVocabularyDictionary();
 
     private PreviewView cameraPreview;
     private ProcessCameraProvider cameraProvider;
     private boolean cameraConnected;
     private String selectedCamera = BACK_CAMERA;
-    private WordChallenge currentChallenge;
+    private List<String> selectedVocabularyGroups = List.of();
+    private List<String> selectedVocabularyPages = List.of();
+    private VocabularyEntry currentChallenge;
     private TextToSpeech textToSpeech;
     private boolean speechReady;
     private boolean speechWarningShown;
@@ -93,6 +105,8 @@ public final class AndroidLauncher extends ComponentActivity {
         super.onCreate(savedInstanceState);
         configureSystemBars();
         selectedCamera = loadCameraSetting();
+        selectedVocabularyGroups = loadVocabularyGroupSettings();
+        selectedVocabularyPages = loadVocabularyPageSettings();
         initializeTextToSpeech();
         gameApp.start();
         showMenuScreen();
@@ -174,6 +188,7 @@ public final class AndroidLauncher extends ComponentActivity {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.VERTICAL);
         actions.setGravity(Gravity.CENTER);
+        actions.setPadding(0, 0, dp(28), 0);
         actions.addView(menuActionRow(R.drawable.settings, "Settings", view -> showSettingsDialog()));
         actions.addView(spacer(24));
         actions.addView(menuActionRow(R.drawable.play, "Play", view -> startSession()));
@@ -189,7 +204,7 @@ public final class AndroidLauncher extends ComponentActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
-        row.setMinimumWidth(dp(230));
+        row.setMinimumWidth(dp(260));
         row.setPadding(0, dp(6), 0, dp(6));
 
         ImageButton button = iconButton(iconResource, text);
@@ -198,7 +213,7 @@ public final class AndroidLauncher extends ComponentActivity {
 
         TextView label = textLabel(text, 28f, TEXT, Typeface.BOLD);
         label.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(dp(120), ViewGroup.LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(dp(145), ViewGroup.LayoutParams.WRAP_CONTENT);
         labelParams.setMargins(dp(12), 0, 0, 0);
         row.addView(label, labelParams);
         return row;
@@ -210,8 +225,33 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private void startChallenge() {
-        currentChallenge = WordChallenge.random(random);
+        currentChallenge = randomChallenge();
         showChoiceScreen();
+    }
+
+    private VocabularyEntry randomChallenge() {
+        VocabularyEntry nextChallenge = vocabularyDictionary.randomEntry(random, selectedVocabularyGroups, selectedVocabularyPages);
+        if (currentChallenge == null) {
+            return nextChallenge;
+        }
+
+        List<VocabularyEntry> candidates = vocabularyDictionary.entriesFor(selectedVocabularyGroups, selectedVocabularyPages);
+        if (candidates.size() <= 1) {
+            return nextChallenge;
+        }
+
+        while (sameChallenge(currentChallenge, nextChallenge)) {
+            nextChallenge = vocabularyDictionary.randomEntry(random, selectedVocabularyGroups, selectedVocabularyPages);
+        }
+        return nextChallenge;
+    }
+
+    private boolean sameChallenge(VocabularyEntry first, VocabularyEntry second) {
+        return first.hebrew().equals(second.hebrew())
+                && first.number() == second.number()
+                && first.gender() == second.gender()
+                && first.arabic().equals(second.arabic())
+                && first.arabicAlias().equals(second.arabicAlias());
     }
 
     private void showChoiceScreen() {
@@ -223,13 +263,15 @@ public final class AndroidLauncher extends ComponentActivity {
         content.addView(hebrewQuestionLabel(QuestionPrompt.prefix(), 18f));
         content.addView(spacer(8));
         content.addView(hebrewQuestionLabel(currentChallenge.hebrew(), 42f));
+        content.addView(spacer(8));
+        content.addView(hebrewQuestionLabel(challengeDetailText(currentChallenge), 20f));
         content.addView(spacer(16));
         content.addView(choiceActionsRow());
         screen.addView(content, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(screen);
-        speakHebrew(QuestionPrompt.spoken(currentChallenge.hebrew()));
+        speakHebrew(QuestionPrompt.spoken(currentChallenge));
     }
 
     private void speakHebrew(String text) {
@@ -260,11 +302,11 @@ public final class AndroidLauncher extends ComponentActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
-        row.addView(choiceButton(R.drawable.camera_steampunk, "Camera", view -> showCameraScreen()));
+        row.addView(choiceButton(R.drawable.camera_steampunk, "Camera", null));
         row.addView(horizontalSpacer(3));
         row.addView(choiceButton(R.drawable.keyboard_steampunk, "Keyboard", view -> showKeyboardDialog()));
         row.addView(horizontalSpacer(3));
-        row.addView(choiceButton(R.drawable.sketchpad_steampunk, "Sketchpad", view -> showSketchpadScreen()));
+        row.addView(choiceButton(R.drawable.sketchpad_steampunk, "Sketchpad", null));
         return row;
     }
 
@@ -343,25 +385,23 @@ public final class AndroidLauncher extends ComponentActivity {
         setContentView(screen);
     }
 
-    private String processCapturedRegion(WordChallenge challenge, Bitmap snapshot, Rect selectedRegion) {
-        return challenge.expectedArabic();
+    private String processCapturedRegion(VocabularyEntry challenge, Bitmap snapshot, Rect selectedRegion) {
+        return challenge.arabic();
     }
 
-    private String processSketchpadDrawing(WordChallenge challenge, SketchpadView sketchpadView) {
-        return challenge.expectedArabic();
+    private String processSketchpadDrawing(VocabularyEntry challenge, SketchpadView sketchpadView) {
+        return challenge.arabic();
     }
 
     private void showResult(String arabicWord, Rect selectedRegion) {
         stopCamera();
-        ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(
-                currentChallenge.expectedArabic(),
-                arabicWord);
-        sessionStatistics.record(currentChallenge.hebrew(), currentChallenge.expectedArabic(), result);
+        ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(currentChallenge, arabicWord);
+        sessionStatistics.record(challengeDisplayText(currentChallenge), result.expectedText(), result);
 
         LinearLayout screen = fullPanel();
         screen.setGravity(Gravity.CENTER);
         LinearLayout content = fullSizeFramePanel();
-        content.addView(textLabel(currentChallenge.hebrew(), 44f, TEXT, Typeface.BOLD));
+        content.addView(textLabel(challengeDisplayText(currentChallenge), 44f, TEXT, Typeface.BOLD));
         content.addView(spacer(16));
         content.addView(feedbackRow("Expected:", expectedFeedbackLabel(result)));
         content.addView(spacer(8));
@@ -384,7 +424,7 @@ public final class AndroidLauncher extends ComponentActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(screen);
-        speakArabic(currentChallenge.spokenArabic());
+        speakArabic(result.expectedText());
     }
 
     private void showSummaryScreen() {
@@ -457,12 +497,107 @@ public final class AndroidLauncher extends ComponentActivity {
         cameraSpinner.setSelection(indexOf(cameraOptions, selectedCamera));
         cameraRow.addView(cameraSpinner, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f));
 
+        TextView groupsLabel = new TextView(this);
+        groupsLabel.setText("Groups");
+        groupsLabel.setTextSize(16f);
+        LinearLayout.LayoutParams groupsLabelParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        groupsLabelParams.setMargins(0, dp(18), 0, dp(6));
+        settingsLayout.addView(groupsLabel, groupsLabelParams);
+
+        CheckBox allGroupsCheckbox = new CheckBox(this);
+        allGroupsCheckbox.setText("All groups");
+        allGroupsCheckbox.setChecked(selectedVocabularyGroups.isEmpty());
+        settingsLayout.addView(allGroupsCheckbox);
+
+        List<CheckBox> groupCheckboxes = new ArrayList<>();
+        Set<String> selectedGroups = new LinkedHashSet<>(selectedVocabularyGroups);
+        for (String group : vocabularyDictionary.groups()) {
+            CheckBox checkbox = new CheckBox(this);
+            checkbox.setText(group);
+            checkbox.setChecked(selectedVocabularyGroups.isEmpty() || selectedGroups.contains(group));
+            groupCheckboxes.add(checkbox);
+            settingsLayout.addView(checkbox);
+        }
+        boolean[] updatingGroupCheckboxes = {false};
+        allGroupsCheckbox.setOnCheckedChangeListener((button, checked) -> {
+            if (updatingGroupCheckboxes[0]) {
+                return;
+            }
+            for (CheckBox checkbox : groupCheckboxes) {
+                checkbox.setChecked(checked);
+            }
+        });
+        for (CheckBox checkbox : groupCheckboxes) {
+            checkbox.setOnCheckedChangeListener((button, checked) -> {
+                if (updatingGroupCheckboxes[0] || !allGroupsCheckbox.isChecked()) {
+                    return;
+                }
+
+                updatingGroupCheckboxes[0] = true;
+                allGroupsCheckbox.setChecked(false);
+                updatingGroupCheckboxes[0] = false;
+            });
+        }
+
+        TextView pagesLabel = new TextView(this);
+        pagesLabel.setText("Pages");
+        pagesLabel.setTextSize(16f);
+        LinearLayout.LayoutParams pagesLabelParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        pagesLabelParams.setMargins(0, dp(18), 0, dp(6));
+        settingsLayout.addView(pagesLabel, pagesLabelParams);
+
+        CheckBox allPagesCheckbox = new CheckBox(this);
+        allPagesCheckbox.setText("All pages");
+        allPagesCheckbox.setChecked(selectedVocabularyPages.isEmpty());
+        settingsLayout.addView(allPagesCheckbox);
+
+        List<CheckBox> pageCheckboxes = new ArrayList<>();
+        Set<String> selectedPages = new LinkedHashSet<>(selectedVocabularyPages);
+        for (String page : vocabularyDictionary.pages()) {
+            CheckBox checkbox = new CheckBox(this);
+            checkbox.setText(page);
+            checkbox.setChecked(selectedVocabularyPages.isEmpty() || selectedPages.contains(page));
+            pageCheckboxes.add(checkbox);
+            settingsLayout.addView(checkbox);
+        }
+        boolean[] updatingPageCheckboxes = {false};
+        allPagesCheckbox.setOnCheckedChangeListener((button, checked) -> {
+            if (updatingPageCheckboxes[0]) {
+                return;
+            }
+            for (CheckBox checkbox : pageCheckboxes) {
+                checkbox.setChecked(checked);
+            }
+        });
+        for (CheckBox checkbox : pageCheckboxes) {
+            checkbox.setOnCheckedChangeListener((button, checked) -> {
+                if (updatingPageCheckboxes[0] || !allPagesCheckbox.isChecked()) {
+                    return;
+                }
+
+                updatingPageCheckboxes[0] = true;
+                allPagesCheckbox.setChecked(false);
+                updatingPageCheckboxes[0] = false;
+            });
+        }
+
+        ScrollView settingsScroll = new ScrollView(this);
+        settingsScroll.addView(settingsLayout);
+
         new AlertDialog.Builder(this)
                 .setTitle("Settings")
-                .setView(settingsLayout)
+                .setView(settingsScroll)
                 .setPositiveButton("Save", (dialog, which) -> {
                     selectedCamera = (String) cameraSpinner.getSelectedItem();
                     saveCameraSetting(selectedCamera);
+                    selectedVocabularyGroups = selectedVocabularyGroupsFrom(allGroupsCheckbox, groupCheckboxes);
+                    saveVocabularyGroupSettings(selectedVocabularyGroups);
+                    selectedVocabularyPages = selectedVocabularyPagesFrom(allPagesCheckbox, pageCheckboxes);
+                    saveVocabularyPageSettings(selectedVocabularyPages);
                     if (cameraConnected) {
                         stopCamera();
                         startCamera();
@@ -470,6 +605,18 @@ public final class AndroidLauncher extends ComponentActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private static VocabularyDictionary loadVocabularyDictionary() {
+        Result<VocabularyDictionary, String> loadedDictionary = VocabularyDictionary.loadDefault();
+        if (loadedDictionary instanceof Result.Success<VocabularyDictionary, String> success) {
+            return success.value();
+        }
+        return new VocabularyDictionary(List.of(new VocabularyEntry(
+                "שמות עצם",
+                VocabularyEntry.NumberForm.SINGLE,
+                "בית",
+                "بَيْت")));
     }
 
     private void startCamera() {
@@ -538,7 +685,12 @@ public final class AndroidLauncher extends ComponentActivity {
         button.setGravity(Gravity.CENTER);
         button.setPadding(dp(8), dp(8), dp(8), dp(8));
         button.setBackgroundColor(Color.TRANSPARENT);
-        button.setOnClickListener(listener);
+        if (listener == null) {
+            button.setEnabled(false);
+            button.setAlpha(0.55f);
+        } else {
+            button.setOnClickListener(listener);
+        }
 
         ImageView image = new ImageView(this);
         image.setImageResource(drawableResource);
@@ -655,7 +807,7 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private TextView expectedFeedbackLabel(ArabicGuessComparison.GuessComparison result) {
-        TextView label = textLabel(String.join("", result.expectedCharacters()), 22f, FEEDBACK_BLUE, Typeface.BOLD);
+        TextView label = textLabel(result.expectedText(), 22f, FEEDBACK_BLUE, Typeface.BOLD);
         label.setTextDirection(View.TEXT_DIRECTION_RTL);
         label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         return label;
@@ -783,6 +935,93 @@ public final class AndroidLauncher extends ComponentActivity {
                 .apply();
     }
 
+    private List<String> loadVocabularyGroupSettings() {
+        SharedPreferences preferences = getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE);
+        Set<String> groups = preferences.getStringSet(VOCABULARY_GROUPS_KEY, Set.of());
+        if (groups == null || groups.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> availableGroups = vocabularyDictionary.groups();
+        List<String> selectedGroups = new ArrayList<>();
+        for (String group : availableGroups) {
+            if (groups.contains(group)) {
+                selectedGroups.add(group);
+            }
+        }
+        return selectedGroups;
+    }
+
+    private void saveVocabularyGroupSettings(List<String> groups) {
+        getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE)
+                .edit()
+                .putStringSet(VOCABULARY_GROUPS_KEY, new LinkedHashSet<>(groups))
+                .apply();
+    }
+
+    private List<String> loadVocabularyPageSettings() {
+        SharedPreferences preferences = getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE);
+        Set<String> pages = preferences.getStringSet(VOCABULARY_PAGES_KEY, Set.of());
+        if (pages == null || pages.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> availablePages = vocabularyDictionary.pages();
+        List<String> selectedPages = new ArrayList<>();
+        for (String page : availablePages) {
+            if (pages.contains(page)) {
+                selectedPages.add(page);
+            }
+        }
+        return selectedPages;
+    }
+
+    private void saveVocabularyPageSettings(List<String> pages) {
+        getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE)
+                .edit()
+                .putStringSet(VOCABULARY_PAGES_KEY, new LinkedHashSet<>(pages))
+                .apply();
+    }
+
+    private List<String> selectedVocabularyGroupsFrom(CheckBox allGroupsCheckbox, List<CheckBox> groupCheckboxes) {
+        if (allGroupsCheckbox.isChecked()) {
+            return List.of();
+        }
+
+        List<String> groups = new ArrayList<>();
+        for (CheckBox checkbox : groupCheckboxes) {
+            if (checkbox.isChecked()) {
+                groups.add(checkbox.getText().toString());
+            }
+        }
+        return groups;
+    }
+
+    private List<String> selectedVocabularyPagesFrom(CheckBox allPagesCheckbox, List<CheckBox> pageCheckboxes) {
+        if (allPagesCheckbox.isChecked()) {
+            return List.of();
+        }
+
+        List<String> pages = new ArrayList<>();
+        for (CheckBox checkbox : pageCheckboxes) {
+            if (checkbox.isChecked()) {
+                pages.add(checkbox.getText().toString());
+            }
+        }
+        return pages;
+    }
+
+    private String challengeDisplayText(VocabularyEntry challenge) {
+        return challenge.hebrew() + " (" + challengeDetailText(challenge) + ")";
+    }
+
+    private String challengeDetailText(VocabularyEntry challenge) {
+        if (challenge.gender().isApplicable()) {
+            return challenge.number().visibleHebrew() + ", " + challenge.gender().visibleHebrew();
+        }
+        return challenge.number().visibleHebrew();
+    }
+
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
@@ -791,19 +1030,6 @@ public final class AndroidLauncher extends ComponentActivity {
         return new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT);
-    }
-
-    private record WordChallenge(String hebrew, String expectedArabic, String spokenArabic) {
-        private static final List<WordChallenge> WORDS = List.of(
-                new WordChallenge("שלום", "سَلَام", "سَلَامْ"),
-                new WordChallenge("בית", "بَيْت", "بَيْتْ"),
-                new WordChallenge("כלב", "كَلْب", "كَلْبْ"),
-                new WordChallenge("ספר", "كِتَاب", "كِتَابْ"),
-                new WordChallenge("שמש", "شَمْس", "شَمْسْ"));
-
-        static WordChallenge random(Random random) {
-            return WORDS.get(random.nextInt(WORDS.size()));
-        }
     }
 
     private final class RegionSelectionView extends View {

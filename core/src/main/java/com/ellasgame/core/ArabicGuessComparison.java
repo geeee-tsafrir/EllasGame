@@ -10,6 +10,32 @@ public final class ArabicGuessComparison {
     }
 
     public static GuessComparison compare(String expected, String actual) {
+        return compareExpected(expected, actual);
+    }
+
+    public static GuessComparison compare(VocabularyEntry expectedEntry, String actual) {
+        Objects.requireNonNull(expectedEntry, "expectedEntry");
+        GuessComparison best = null;
+        for (String expected : expectedEntry.arabicAnswers()) {
+            GuessComparison comparison = compareExpected(expected, actual);
+            if (best == null || isBetter(comparison, best)) {
+                best = comparison;
+            }
+        }
+        return Objects.requireNonNull(best, "best");
+    }
+
+    private static boolean isBetter(GuessComparison candidate, GuessComparison current) {
+        if (candidate.totalErrors() != current.totalErrors()) {
+            return candidate.totalErrors() < current.totalErrors();
+        }
+        if (candidate.baseLetterErrors() != current.baseLetterErrors()) {
+            return candidate.baseLetterErrors() < current.baseLetterErrors();
+        }
+        return candidate.signErrors() < current.signErrors();
+    }
+
+    private static GuessComparison compareExpected(String expected, String actual) {
         List<ArabicUnit> expectedUnits = ArabicUnit.parse(expected);
         List<ArabicUnit> actualUnits = ArabicUnit.parse(actual);
         List<AlignmentStep> alignment = alignBaseLetters(expectedUnits, actualUnits);
@@ -56,6 +82,7 @@ public final class ArabicGuessComparison {
         }
 
         return new GuessComparison(
+                expected,
                 baseLetterErrors == 0 && signErrors == 0,
                 baseLetterErrors,
                 signErrors,
@@ -201,6 +228,7 @@ public final class ArabicGuessComparison {
 
         static List<ArabicUnit> parse(String rawText) {
             String normalized = Normalizer.normalize(rawText == null ? "" : rawText.trim(), Normalizer.Form.NFC);
+            boolean previousWasWhitespace = false;
             List<ArabicUnitBuilder> builders = new ArrayList<>();
             ArabicUnitBuilder current = null;
 
@@ -208,7 +236,17 @@ public final class ArabicGuessComparison {
                 int codePoint = normalized.codePointAt(offset);
                 offset += Character.charCount(codePoint);
 
-                if (Character.isWhitespace(codePoint) || codePoint == 0x0640) {
+                if (Character.isWhitespace(codePoint)) {
+                    if (!previousWasWhitespace && !builders.isEmpty()) {
+                        current = new ArabicUnitBuilder(' ');
+                        builders.add(current);
+                    }
+                    previousWasWhitespace = true;
+                    continue;
+                }
+                previousWasWhitespace = false;
+
+                if (codePoint == 0x0640) {
                     continue;
                 }
                 if (isArabicSign(codePoint)) {
@@ -258,6 +296,7 @@ public final class ArabicGuessComparison {
     }
 
     public record GuessComparison(
+            String expectedText,
             boolean correct,
             int baseLetterErrors,
             int signErrors,

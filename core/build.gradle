@@ -2,6 +2,38 @@ plugins {
     id "java-library"
 }
 
+def generatedLangDictionaryDir = layout.buildDirectory.dir("generated/lang-dictionary/main")
+
+sourceSets {
+    main {
+        resources.srcDir(generatedLangDictionaryDir)
+    }
+}
+
+tasks.register("copyLangDictionary", Copy) {
+    def sourceDirectory = rootProject.layout.projectDirectory.dir("lang_dict")
+    def outputDirectory = generatedLangDictionaryDir.map { it.dir("lang_dict") }
+
+    from(sourceDirectory) {
+        include("*.csv")
+    }
+    into(outputDirectory)
+
+    doLast {
+        def files = sourceDirectory.asFile.listFiles({ file -> file.name.endsWith(".csv") } as FileFilter)
+                ?.collect { it.name }
+                ?.sort()
+                ?: []
+        def indexFile = outputDirectory.get().file("index.txt").asFile
+        indexFile.parentFile.mkdirs()
+        indexFile.text = files.join(System.lineSeparator()) + (files.isEmpty() ? "" : System.lineSeparator())
+    }
+}
+
+tasks.named("processResources") {
+    dependsOn("copyLangDictionary")
+}
+
 dependencies {
     implementation "com.squareup.moshi:moshi:1.15.2"
 }

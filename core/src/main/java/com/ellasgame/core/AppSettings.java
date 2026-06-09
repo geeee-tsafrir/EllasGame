@@ -1,21 +1,51 @@
 package com.ellasgame.core;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
-public record AppSettings(String camera) implements Serializable {
+public record AppSettings(String camera, List<String> vocabularyGroups, List<String> vocabularyPages) implements Serializable {
     public static final String DEFAULT_CAMERA = "Default camera";
 
     public AppSettings {
         if (camera == null || camera.isBlank()) {
             camera = DEFAULT_CAMERA;
         }
+        vocabularyGroups = vocabularyGroups == null ? List.of() : List.copyOf(cleanGroups(vocabularyGroups));
+        vocabularyPages = vocabularyPages == null ? List.of() : List.copyOf(cleanGroups(vocabularyPages));
     }
 
     public static AppSettings defaults() {
-        return new AppSettings(DEFAULT_CAMERA);
+        return new AppSettings(DEFAULT_CAMERA, List.of(), List.of());
     }
 
     public AppSettings withCamera(String newCamera) {
-        return new AppSettings(newCamera);
+        return new AppSettings(newCamera, vocabularyGroups, vocabularyPages);
+    }
+
+    public AppSettings withVocabularyGroups(List<String> newVocabularyGroups) {
+        return new AppSettings(camera, newVocabularyGroups, vocabularyPages);
+    }
+
+    public AppSettings withVocabularyPages(List<String> newVocabularyPages) {
+        return new AppSettings(camera, vocabularyGroups, newVocabularyPages);
+    }
+
+    public boolean usesAllVocabularyGroups() {
+        return vocabularyGroups.isEmpty();
+    }
+
+    public boolean usesAllVocabularyPages() {
+        return vocabularyPages.isEmpty();
+    }
+
+    private static List<String> cleanGroups(List<String> groups) {
+        List<String> cleanGroups = new ArrayList<>();
+        for (String group : groups) {
+            if (group != null && !group.isBlank() && !cleanGroups.contains(group.trim())) {
+                cleanGroups.add(group.trim());
+            }
+        }
+        return cleanGroups;
     }
 }

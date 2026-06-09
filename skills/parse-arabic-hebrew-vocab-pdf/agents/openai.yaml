@@ -1,0 +1,3 @@
+display_name: Parse Arabic-Hebrew Vocab PDF
+short_description: Parse the EllasGame vocabulary PDF into reviewed UTF-8 page CSVs.
+default_prompt: Continue parsing the Arabic-Hebrew vocabulary PDF using the established page-by-page review and CSV workflow.

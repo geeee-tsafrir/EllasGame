@@ -4,7 +4,10 @@ import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.ApplicationSettings;
 import com.ellasgame.core.GameApp;
 import com.ellasgame.core.QuestionPrompt;
+import com.ellasgame.core.Result;
 import com.ellasgame.core.SessionStatistics;
+import com.ellasgame.core.VocabularyDictionary;
+import com.ellasgame.core.VocabularyEntry;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -75,7 +78,8 @@ public final class DesktopLauncher {
 
         CameraStreamPanel cameraStreamPanel = new CameraStreamPanel();
         DesktopCameraOptions cameraOptions = new DesktopCameraOptions();
-        AppFlow flow = new AppFlow(settingsStore, cameraOptions, cameraStreamPanel);
+        VocabularyDictionary vocabularyDictionary = loadVocabularyDictionary();
+        AppFlow flow = new AppFlow(settingsStore, cameraOptions, cameraStreamPanel, vocabularyDictionary);
 
         JFrame frame = new JFrame("EllasGame");
         flow.attachFrame(frame);
@@ -94,24 +98,43 @@ public final class DesktopLauncher {
         frame.setVisible(true);
     }
 
+    private static VocabularyDictionary loadVocabularyDictionary() {
+        Result<VocabularyDictionary, String> loadedDictionary = VocabularyDictionary.loadDefault();
+        if (loadedDictionary instanceof Result.Success<VocabularyDictionary, String> success) {
+            return success.value();
+        }
+
+        if (loadedDictionary instanceof Result.Failure<VocabularyDictionary, String> failure) {
+            System.err.println(failure.error());
+        }
+        return new VocabularyDictionary(List.of(new VocabularyEntry(
+                "שמות עצם",
+                VocabularyEntry.NumberForm.SINGLE,
+                "בית",
+                "بَيْت")));
+    }
+
     private static final class AppFlow {
         private final SettingsJsonStore settingsStore;
         private final DesktopCameraOptions cameraOptions;
         private final CameraStreamPanel cameraStreamPanel;
+        private final VocabularyDictionary vocabularyDictionary;
         private final CardLayout cards = new CardLayout();
         private final JPanel rootPanel = new JPanel(cards);
         private final Random random = new Random();
         private final SessionStatistics sessionStatistics = new SessionStatistics();
         private JFrame frame;
-        private WordChallenge currentChallenge;
+        private VocabularyEntry currentChallenge;
 
         AppFlow(
                 SettingsJsonStore settingsStore,
                 DesktopCameraOptions cameraOptions,
-                CameraStreamPanel cameraStreamPanel) {
+                CameraStreamPanel cameraStreamPanel,
+                VocabularyDictionary vocabularyDictionary) {
             this.settingsStore = settingsStore;
             this.cameraOptions = cameraOptions;
             this.cameraStreamPanel = cameraStreamPanel;
+            this.vocabularyDictionary = vocabularyDictionary;
         }
 
         void attachFrame(JFrame frame) {
@@ -133,7 +156,7 @@ public final class DesktopLauncher {
             actions.setOpaque(false);
             actions.setLayout(new BoxLayout(actions, BoxLayout.Y_AXIS));
             actions.add(createLargeActionButton("/icons/settings.png", "Settings", () ->
-                    SettingsWindow.show(frame, cameraOptions, settingsStore)));
+                    SettingsWindow.show(frame, cameraOptions, settingsStore, vocabularyDictionary.groups(), vocabularyDictionary.pages())));
             actions.add(Box.createVerticalStrut(24));
             actions.add(createLargeActionButton("/icons/play.png", "Play", this::startNewSession));
 
@@ -156,10 +179,37 @@ public final class DesktopLauncher {
         }
 
         private void startNewChallenge() {
-            currentChallenge = WordChallenge.random(random);
+            currentChallenge = randomChallenge();
             cameraStreamPanel.disconnect();
             showGameContent(createWordChoicePanel());
             cards.show(rootPanel, GAME_CARD);
+        }
+
+        private VocabularyEntry randomChallenge() {
+            List<String> selectedGroups = ApplicationSettings.current().vocabularyGroups();
+            List<String> selectedPages = ApplicationSettings.current().vocabularyPages();
+            VocabularyEntry nextChallenge = vocabularyDictionary.randomEntry(random, selectedGroups, selectedPages);
+            if (currentChallenge == null) {
+                return nextChallenge;
+            }
+
+            List<VocabularyEntry> candidates = vocabularyDictionary.entriesFor(selectedGroups, selectedPages);
+            if (candidates.size() <= 1) {
+                return nextChallenge;
+            }
+
+            while (sameChallenge(currentChallenge, nextChallenge)) {
+                nextChallenge = vocabularyDictionary.randomEntry(random, selectedGroups, selectedPages);
+            }
+            return nextChallenge;
+        }
+
+        private boolean sameChallenge(VocabularyEntry first, VocabularyEntry second) {
+            return first.hebrew().equals(second.hebrew())
+                    && first.number() == second.number()
+                    && first.gender() == second.gender()
+                    && first.arabic().equals(second.arabic())
+                    && first.arabicAlias().equals(second.arabicAlias());
         }
 
         private JPanel createWordChoicePanel() {
@@ -174,6 +224,8 @@ public final class DesktopLauncher {
             content.add(Box.createVerticalStrut(16));
             JLabel word = titleLabel(currentChallenge == null ? "" : currentChallenge.hebrew());
             content.add(word);
+            content.add(Box.createVerticalStrut(8));
+            content.add(valueLabel(currentChallenge == null ? "" : challengeDetailText(currentChallenge)));
             content.add(Box.createVerticalStrut(34));
             content.add(createChoiceActionsRow());
 
@@ -189,13 +241,13 @@ public final class DesktopLauncher {
             GridBagConstraints constraints = new GridBagConstraints();
             constraints.gridy = 0;
             constraints.insets = new Insets(0, 0, 0, 18);
-            row.add(createChoiceActionButton("/icons/camera-steampunk.png", "Camera", this::showCameraCapturePanel), constraints);
+            row.add(createChoiceActionButton("/icons/camera-steampunk.png", "Camera", null), constraints);
 
             constraints.insets = new Insets(0, 0, 0, 18);
             row.add(createChoiceActionButton("/icons/keyboard-steampunk.png", "Keyboard", this::showKeyboardEntry), constraints);
 
             constraints.insets = new Insets(0, 0, 0, 0);
-            row.add(createChoiceActionButton("/icons/sketchpad-steampunk.png", "Sketchpad", this::showSketchpadPanel), constraints);
+            row.add(createChoiceActionButton("/icons/sketchpad-steampunk.png", "Sketchpad", null), constraints);
             return row;
         }
 
@@ -255,26 +307,24 @@ public final class DesktopLauncher {
         }
 
         private String processCapturedRegion(
-                WordChallenge challenge,
+                VocabularyEntry challenge,
                 BufferedImage snapshot,
                 Rectangle selectedRegion) {
-            return challenge.expectedArabic();
+            return challenge.arabic();
         }
 
-        private String processSketchpadDrawing(WordChallenge challenge, SketchpadPanel sketchpadPanel) {
-            return challenge.expectedArabic();
+        private String processSketchpadDrawing(VocabularyEntry challenge, SketchpadPanel sketchpadPanel) {
+            return challenge.arabic();
         }
 
         private void showResult(String arabicWord, Rectangle selectedRegion) {
-            ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(
-                    currentChallenge.expectedArabic(),
-                    arabicWord);
-            sessionStatistics.record(currentChallenge.hebrew(), currentChallenge.expectedArabic(), result);
+            ArabicGuessComparison.GuessComparison result = ArabicGuessComparison.compare(currentChallenge, arabicWord);
+            sessionStatistics.record(challengeDisplayText(currentChallenge), result.expectedText(), result);
 
             JPanel panel = fullPanel();
             panel.setLayout(new GridBagLayout());
             JPanel content = centeredContent();
-            content.add(titleLabel(currentChallenge.hebrew()));
+            content.add(titleLabel(challengeDisplayText(currentChallenge)));
             content.add(Box.createVerticalStrut(16));
             content.add(htmlValueLabel(expectedFeedbackHtml(result)));
             content.add(Box.createVerticalStrut(10));
@@ -349,6 +399,17 @@ public final class DesktopLauncher {
             gamePanel.repaint();
         }
 
+        private String challengeDisplayText(VocabularyEntry challenge) {
+            return challenge.hebrew() + " (" + challengeDetailText(challenge) + ")";
+        }
+
+        private String challengeDetailText(VocabularyEntry challenge) {
+            if (challenge.gender().isApplicable()) {
+                return challenge.number().visibleHebrew() + ", " + challenge.gender().visibleHebrew();
+            }
+            return challenge.number().visibleHebrew();
+        }
+
         private JPanel createLargeActionButton(String iconPath, String text, Runnable action) {
             JPanel row = new JPanel(new GridBagLayout());
             row.setOpaque(false);
@@ -387,7 +448,11 @@ public final class DesktopLauncher {
             button.setContentAreaFilled(false);
             button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
             button.setFont(button.getFont().deriveFont(Font.BOLD, 18f));
-            button.addActionListener(event -> action.run());
+            if (action == null) {
+                button.setEnabled(false);
+            } else {
+                button.addActionListener(event -> action.run());
+            }
             return button;
         }
 
@@ -489,8 +554,8 @@ public final class DesktopLauncher {
 
         private String expectedFeedbackHtml(ArabicGuessComparison.GuessComparison result) {
             return "<html><table><tr><td align='right' width='86'><span style='color:" + htmlColor(MUTED_TEXT) + "'>Expected:</span></td>"
-                    + "<td align='right' width='140'><span dir='rtl' style='color:" + htmlColor(FEEDBACK_BLUE) + "'>"
-                    + escapeHtml(String.join("", result.expectedCharacters()))
+                    + "<td align='right' width='260'><span dir='rtl' style='color:" + htmlColor(FEEDBACK_BLUE) + "'>"
+                    + escapeHtml(result.expectedText())
                     + "</span></td></tr></table></html>";
         }
 
@@ -598,19 +663,6 @@ public final class DesktopLauncher {
                 Point to = stroke.get(index);
                 graphics2D.drawLine(from.x, from.y, to.x, to.y);
             }
-        }
-    }
-
-    private record WordChallenge(String hebrew, String expectedArabic) {
-        private static final List<WordChallenge> WORDS = List.of(
-                new WordChallenge("שלום", "سَلَام"),
-                new WordChallenge("בית", "بَيْت"),
-                new WordChallenge("כלב", "كَلْب"),
-                new WordChallenge("ספר", "كِتَاب"),
-                new WordChallenge("שמש", "شَمْس"));
-
-        static WordChallenge random(Random random) {
-            return WORDS.get(random.nextInt(WORDS.size()));
         }
     }
 
