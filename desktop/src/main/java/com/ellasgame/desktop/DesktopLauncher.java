@@ -32,7 +32,9 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import javax.swing.BorderFactory;
@@ -125,6 +127,7 @@ public final class DesktopLauncher {
         private final SessionStatistics sessionStatistics = new SessionStatistics();
         private JFrame frame;
         private VocabularyEntry currentChallenge;
+        private JLabel selectedWordCountLabel;
 
         AppFlow(
                 SettingsJsonStore settingsStore,
@@ -156,14 +159,46 @@ public final class DesktopLauncher {
             actions.setOpaque(false);
             actions.setLayout(new BoxLayout(actions, BoxLayout.Y_AXIS));
             actions.add(createLargeActionButton("/icons/settings.png", "Settings", () ->
-                    SettingsWindow.show(frame, cameraOptions, settingsStore, vocabularyDictionary.groups(), vocabularyDictionary.pages())));
+                    SettingsWindow.show(
+                            frame,
+                            cameraOptions,
+                            settingsStore,
+                            vocabularyDictionary.groups(),
+                            vocabularyDictionary.pages(),
+                            pageWordCounts(),
+                            this::refreshSelectedWordCount)));
             actions.add(Box.createVerticalStrut(24));
             actions.add(createLargeActionButton("/icons/play.png", "Play", this::startNewSession));
+            actions.add(Box.createVerticalStrut(16));
+            selectedWordCountLabel = valueLabel(selectedWordCountText());
+            selectedWordCountLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            actions.add(selectedWordCountLabel);
 
             JPanel window = centeredContent();
             window.add(actions);
             menu.add(window, new GridBagConstraints());
             return menu;
+        }
+
+        private Map<String, Integer> pageWordCounts() {
+            Map<String, Integer> wordCounts = new LinkedHashMap<>();
+            for (String page : vocabularyDictionary.pages()) {
+                wordCounts.put(page, vocabularyDictionary.entryCountForPage(page));
+            }
+            return wordCounts;
+        }
+
+        private void refreshSelectedWordCount() {
+            if (selectedWordCountLabel != null) {
+                selectedWordCountLabel.setText(selectedWordCountText());
+            }
+        }
+
+        private String selectedWordCountText() {
+            int wordCount = vocabularyDictionary.entryCountFor(
+                    ApplicationSettings.current().vocabularyGroups(),
+                    ApplicationSettings.current().vocabularyPages());
+            return wordCount + " words selected";
         }
 
         private JPanel createGamePanel() {

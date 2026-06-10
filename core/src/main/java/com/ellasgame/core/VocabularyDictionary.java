@@ -202,6 +202,20 @@ public final class VocabularyDictionary {
         return pages;
     }
 
+    public int entryCountForPage(String page) {
+        if (page == null || page.isBlank()) {
+            return 0;
+        }
+
+        return (int) entries.stream()
+                .filter(entry -> page.equals(entry.page()))
+                .count();
+    }
+
+    public int entryCountFor(Collection<String> selectedGroups, Collection<String> selectedPages) {
+        return entriesFor(selectedGroups, selectedPages).size();
+    }
+
     public VocabularyEntry randomEntry(Random random, Collection<String> selectedGroups) {
         return randomEntry(random, selectedGroups, List.of());
     }

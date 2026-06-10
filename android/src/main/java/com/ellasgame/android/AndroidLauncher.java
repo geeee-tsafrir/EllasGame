@@ -222,6 +222,15 @@ public final class AndroidLauncher extends ComponentActivity {
         actions.addView(menuActionRow(R.drawable.settings, "Settings", view -> showSettingsDialog()));
         actions.addView(spacer(24));
         actions.addView(menuActionRow(R.drawable.play, "Play", view -> startSession()));
+        actions.addView(spacer(16));
+        TextView selectedWordCount = new TextView(this);
+        selectedWordCount.setText(selectedWordCountText());
+        selectedWordCount.setTextColor(MUTED_TEXT);
+        selectedWordCount.setTextSize(16f);
+        selectedWordCount.setGravity(Gravity.CENTER);
+        actions.addView(selectedWordCount, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout window = fullSizeFramePanel();
         window.addView(actions);
         menu.addView(window, new LinearLayout.LayoutParams(
@@ -716,9 +725,10 @@ public final class AndroidLauncher extends ComponentActivity {
         for (String page : vocabularyDictionary.pages()) {
             CheckBox checkbox = new CheckBox(this);
             checkbox.setText(page);
+            checkbox.setTag(page);
             checkbox.setChecked(selectedVocabularyPages.isEmpty() || selectedPages.contains(page));
             pageCheckboxes.add(checkbox);
-            pagesContent.addView(checkbox);
+            pagesContent.addView(pageSelectionRow(page, checkbox));
         }
         boolean[] updatingPageCheckboxes = {false};
         allPagesCheckbox.setOnCheckedChangeListener((button, checked) -> {
@@ -759,10 +769,35 @@ public final class AndroidLauncher extends ComponentActivity {
                     if (cameraConnected) {
                         stopCamera();
                         startCamera();
+                    } else {
+                        showMenuScreen();
                     }
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private LinearLayout pageSelectionRow(String page, CheckBox checkbox) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        row.addView(checkbox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView count = new TextView(this);
+        count.setText(vocabularyDictionary.entryCountForPage(page) + " words");
+        count.setTextColor(MUTED_TEXT);
+        count.setTextSize(14f);
+        count.setGravity(Gravity.END);
+        row.addView(count, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        return row;
+    }
+
+    private String selectedWordCountText() {
+        int wordCount = vocabularyDictionary.entryCountFor(selectedVocabularyGroups, selectedVocabularyPages);
+        return wordCount + " words selected";
     }
 
     private static VocabularyDictionary loadVocabularyDictionary() {
@@ -1230,7 +1265,10 @@ public final class AndroidLauncher extends ComponentActivity {
         List<String> pages = new ArrayList<>();
         for (CheckBox checkbox : pageCheckboxes) {
             if (checkbox.isChecked()) {
-                pages.add(checkbox.getText().toString());
+                Object page = checkbox.getTag();
+                if (page instanceof String value) {
+                    pages.add(value);
+                }
             }
         }
         return pages;

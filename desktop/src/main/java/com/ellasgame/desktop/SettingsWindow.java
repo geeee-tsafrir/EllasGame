@@ -17,6 +17,7 @@ import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.BorderFactory;
@@ -44,7 +45,9 @@ public final class SettingsWindow {
             DesktopCameraOptions cameraOptions,
             SettingsJsonStore settingsStore,
             List<String> vocabularyGroups,
-            List<String> vocabularyPages) {
+            List<String> vocabularyPages,
+            Map<String, Integer> vocabularyPageWordCounts,
+            Runnable onSettingsChanged) {
         if (settingsDialog != null && settingsDialog.isDisplayable()) {
             settingsDialog.toFront();
             settingsDialog.requestFocus();
@@ -58,7 +61,8 @@ public final class SettingsWindow {
                 loadedSettings,
                 cameraOptions,
                 vocabularyGroups,
-                vocabularyPages);
+                vocabularyPages,
+                vocabularyPageWordCounts);
 
         settingsDialog = new JDialog(owner, "Settings", Dialog.ModalityType.APPLICATION_MODAL);
         settingsDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
@@ -72,6 +76,7 @@ public final class SettingsWindow {
                 AppSettings updatedSettings = settingsContent.toAppSettings();
                 settingsStore.save(updatedSettings).map(settings -> {
                     ApplicationSettings.replace(settings);
+                    onSettingsChanged.run();
                     return settings;
                 });
             }
@@ -101,7 +106,8 @@ public final class SettingsWindow {
             AppSettings settings,
             DesktopCameraOptions cameraValidator,
             List<String> vocabularyGroups,
-            List<String> vocabularyPages) {
+            List<String> vocabularyPages,
+            Map<String, Integer> vocabularyPageWordCounts) {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(new Color(35, 42, 54));
         panel.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
@@ -114,11 +120,13 @@ public final class SettingsWindow {
         VocabularyCheckboxSelector vocabularyGroupSelector = createVocabularyCheckboxSelector(
                 "All groups",
                 vocabularyGroups,
-                settings.vocabularyGroups());
+                settings.vocabularyGroups(),
+                Map.of());
         VocabularyCheckboxSelector vocabularyPageSelector = createVocabularyCheckboxSelector(
                 "All pages",
                 vocabularyPages,
-                settings.vocabularyPages());
+                settings.vocabularyPages(),
+                vocabularyPageWordCounts);
         JPanel settingsTable = createSettingsTable(cameraSelector, vocabularyGroupSelector.panel(), vocabularyPageSelector.panel());
 
         GridBagConstraints constraints = new GridBagConstraints();
@@ -227,19 +235,20 @@ public final class SettingsWindow {
     private static VocabularyCheckboxSelector createVocabularyCheckboxSelector(
             String allLabel,
             List<String> values,
-            List<String> selectedValues) {
+            List<String> selectedValues,
+            Map<String, Integer> valueWordCounts) {
         JCheckBox allValues = styledCheckBox(allLabel, selectedValues == null || selectedValues.isEmpty());
         JPanel checkboxPanel = new JPanel();
         checkboxPanel.setOpaque(false);
         checkboxPanel.setLayout(new BoxLayout(checkboxPanel, BoxLayout.Y_AXIS));
         checkboxPanel.add(allValues);
 
-        List<JCheckBox> valueCheckboxes = new ArrayList<>();
+        List<ValueCheckbox> valueCheckboxes = new ArrayList<>();
         Set<String> selected = selectedValues == null ? Set.of() : new LinkedHashSet<>(selectedValues);
         for (String value : values) {
             JCheckBox checkbox = styledCheckBox(value, allValues.isSelected() || selected.contains(value));
-            valueCheckboxes.add(checkbox);
-            checkboxPanel.add(checkbox);
+            valueCheckboxes.add(new ValueCheckbox(value, checkbox));
+            checkboxPanel.add(valueRow(value, checkbox, valueWordCounts));
         }
 
         boolean[] updatingValueCheckboxes = {false};
@@ -248,12 +257,12 @@ public final class SettingsWindow {
                 return;
             }
             boolean selectedAll = allValues.isSelected();
-            for (JCheckBox checkbox : valueCheckboxes) {
-                checkbox.setSelected(selectedAll);
+            for (ValueCheckbox valueCheckbox : valueCheckboxes) {
+                valueCheckbox.checkbox().setSelected(selectedAll);
             }
         });
-        for (JCheckBox checkbox : valueCheckboxes) {
-            checkbox.addActionListener(event -> {
+        for (ValueCheckbox valueCheckbox : valueCheckboxes) {
+            valueCheckbox.checkbox().addActionListener(event -> {
                 if (updatingValueCheckboxes[0] || !allValues.isSelected()) {
                     return;
                 }
@@ -269,6 +278,37 @@ public final class SettingsWindow {
         scrollPane.setPreferredSize(new Dimension(280, 96));
         scrollPane.getViewport().setBackground(new Color(24, 29, 38));
         return new VocabularyCheckboxSelector(scrollPane, allValues, valueCheckboxes);
+    }
+
+    private static Component valueRow(String value, JCheckBox checkbox, Map<String, Integer> valueWordCounts) {
+        Integer wordCount = valueWordCounts.get(value);
+        if (wordCount == null) {
+            return checkbox;
+        }
+
+        JPanel row = new JPanel(new GridBagLayout());
+        row.setOpaque(true);
+        row.setBackground(new Color(24, 29, 38));
+
+        GridBagConstraints checkboxConstraints = new GridBagConstraints();
+        checkboxConstraints.gridx = 0;
+        checkboxConstraints.gridy = 0;
+        checkboxConstraints.fill = GridBagConstraints.HORIZONTAL;
+        checkboxConstraints.weightx = 1.0;
+        row.add(checkbox, checkboxConstraints);
+
+        JLabel countLabel = new JLabel(wordCount + " words");
+        countLabel.setForeground(new Color(165, 176, 190));
+        countLabel.setFont(countLabel.getFont().deriveFont(Font.BOLD, 12f));
+        countLabel.setBorder(BorderFactory.createEmptyBorder(4, 12, 4, 8));
+
+        GridBagConstraints countConstraints = new GridBagConstraints();
+        countConstraints.gridx = 1;
+        countConstraints.gridy = 0;
+        countConstraints.anchor = GridBagConstraints.EAST;
+        row.add(countLabel, countConstraints);
+
+        return row;
     }
 
     private static JCheckBox styledCheckBox(String text, boolean selected) {
@@ -304,20 +344,23 @@ public final class SettingsWindow {
     private record VocabularyCheckboxSelector(
             Component panel,
             JCheckBox allValues,
-            List<JCheckBox> valueCheckboxes) {
+            List<ValueCheckbox> valueCheckboxes) {
         List<String> selectedValues() {
             if (allValues.isSelected()) {
                 return List.of();
             }
 
             List<String> selectedValues = new ArrayList<>();
-            for (JCheckBox checkbox : valueCheckboxes) {
-                if (checkbox.isSelected()) {
-                    selectedValues.add(checkbox.getText());
+            for (ValueCheckbox valueCheckbox : valueCheckboxes) {
+                if (valueCheckbox.checkbox().isSelected()) {
+                    selectedValues.add(valueCheckbox.value());
                 }
             }
             return selectedValues;
         }
+    }
+
+    private record ValueCheckbox(String value, JCheckBox checkbox) {
     }
 
     private static final class CameraOptionRenderer extends DefaultListCellRenderer {
