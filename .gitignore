@@ -12,6 +12,7 @@ replay_pid*
 .gradle/
 build/
 out/
+core/bin/
 !gradle/wrapper/gradle-wrapper.jar
 
 # Maven
