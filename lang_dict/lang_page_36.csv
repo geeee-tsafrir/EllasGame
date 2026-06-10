@@ -1,0 +1,23 @@
+group,number,gender,Word hebrew,Word arabic,Word arabic alias
+מספרים,single,male,"אחד ה... (משמש נסמך, כמו: אחד הילדים)",‏أَحَد,N/A
+מספרים,single,female,"אחת ה... (משמש נסמך, כמו: אחד הילדים)",‏إِحْدَى,N/A
+מספרים,single,male,"אחד (משמש שם־תואר, כמו: איש אחד)",‏وَاحِد,N/A
+מספרים,single,female,"אחת (משמש שם־תואר, כמו: אישה אחת)",‏وَاحِدَة,N/A
+מספרים,single,male,שניים,‏إِثْنَانِ,‏ٱثْنَانِ
+מספרים,single,female,שתיים,‏إِثْنَتَانِ,‏ٱثْنَتَانِ
+מספרים,single,male,שלושה,‏ثَلَاثَة,N/A
+מספרים,single,female,שלוש,‏ثَلَاث,N/A
+מספרים,single,male,ארבעה,‏أَرْبَعَة,N/A
+מספרים,single,female,ארבע,‏أَرْبَع,N/A
+מספרים,single,male,חמישה,‏خَمْسَة,N/A
+מספרים,single,female,חמש,‏خَمْس,N/A
+מספרים,single,male,שישה,‏سِتَّة,N/A
+מספרים,single,female,שש,‏سِتّ,N/A
+מספרים,single,male,שבעה,‏سَبْعَة,N/A
+מספרים,single,female,שבע,‏سَبْع,N/A
+מספרים,single,male,שמונה,‏ثَمَانِيَة,N/A
+מספרים,single,female,שמונה (נסמך),‏ثَمَانِي,N/A
+מספרים,single,male,תשעה,‏تِسْعَة,N/A
+מספרים,single,female,תשע,‏تِسْع,N/A
+מספרים,single,male,עשרה,‏عَشَرَة,N/A
+מספרים,single,female,עשר,‏عَشْر,N/A
