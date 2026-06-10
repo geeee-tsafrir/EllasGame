@@ -48,6 +48,7 @@ import androidx.camera.view.PreviewView;
 
 import com.ellasgame.core.ArabicGuessComparison;
 import com.ellasgame.core.GameApp;
+import com.ellasgame.core.HebrewGuessComparison;
 import com.ellasgame.core.QuestionPrompt;
 import com.ellasgame.core.Result;
 import com.ellasgame.core.SessionStatistics;
@@ -547,23 +548,21 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private void showHebrewResult(String answerText, Rect selectedRegion) {
-        String expected = currentChallenge.hebrew();
-        int errors = normalizedTextDistance(expected, answerText);
-        boolean correct = errors == 0;
-        sessionStatistics.record(challengeDisplayText(currentChallenge), expected, errors, 0);
+        HebrewGuessComparison.GuessComparison result = HebrewGuessComparison.compare(currentChallenge.hebrew(), answerText);
+        sessionStatistics.record(challengeDisplayText(currentChallenge), result.expectedText(), result.characterErrors(), 0);
 
         LinearLayout screen = fullPanel();
         screen.setGravity(Gravity.CENTER);
         LinearLayout content = fullSizeFramePanel();
         content.addView(textLabel(challengeDisplayText(currentChallenge), 44f, TEXT, Typeface.BOLD));
         content.addView(spacer(16));
-        content.addView(feedbackRow("Expected:", plainFeedbackLabel(expected, FEEDBACK_BLUE, true)));
+        content.addView(feedbackRow("Expected:", plainFeedbackLabel(result.expectedText(), FEEDBACK_BLUE, true)));
         content.addView(spacer(8));
-        content.addView(feedbackRow("User:", plainFeedbackLabel(answerText, correct ? FEEDBACK_BLUE : FEEDBACK_RED, true)));
+        content.addView(feedbackRow("User:", hebrewUserFeedbackLabel(result)));
         content.addView(spacer(8));
-        content.addView(textLabel(correct ? "Result: Success" : "Result: " + errors + " errors", 20f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(textLabel(result.resultText(), 20f, MUTED_TEXT, Typeface.BOLD));
         content.addView(spacer(8));
-        content.addView(textLabel("Characters: " + errors + " errors", 16f, MUTED_TEXT, Typeface.BOLD));
+        content.addView(textLabel("Characters: " + result.characterErrors() + " errors", 16f, MUTED_TEXT, Typeface.BOLD));
         if (!selectedRegion.isEmpty()) {
             content.addView(spacer(8));
             content.addView(textLabel("Region: " + selectedRegion.width() + "x" + selectedRegion.height(), 16f, MUTED_TEXT, Typeface.BOLD));
@@ -576,7 +575,7 @@ public final class AndroidLauncher extends ComponentActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(screen);
-        speakHebrew(expected);
+        speakHebrew(result.expectedText());
     }
 
     private void showSummaryScreen() {
@@ -1036,6 +1035,31 @@ public final class AndroidLauncher extends ComponentActivity {
         return label;
     }
 
+    private TextView hebrewUserFeedbackLabel(HebrewGuessComparison.GuessComparison result) {
+        StringBuilder text = new StringBuilder();
+        for (HebrewGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
+            text.append(character.text());
+        }
+
+        SpannableString feedback = new SpannableString(text.toString());
+        int offset = 0;
+        for (HebrewGuessComparison.UserCharacterFeedback character : result.userCharacters()) {
+            int end = offset + character.text().length();
+            feedback.setSpan(
+                    new ForegroundColorSpan(character.correct() ? FEEDBACK_BLUE : FEEDBACK_RED),
+                    offset,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            offset = end;
+        }
+
+        TextView label = textLabel("", 22f, MUTED_TEXT, Typeface.BOLD);
+        label.setText(feedback);
+        label.setTextDirection(View.TEXT_DIRECTION_RTL);
+        label.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        return label;
+    }
+
     private int feedbackColor(ArabicGuessComparison.UserCharacterFeedback character) {
         if (!character.baseCorrect()) {
             return FEEDBACK_RED;
@@ -1046,44 +1070,6 @@ public final class AndroidLauncher extends ComponentActivity {
             }
         }
         return FEEDBACK_BLUE;
-    }
-
-    private int normalizedTextDistance(String expected, String actual) {
-        return levenshteinDistance(normalizeAnswerText(expected), normalizeAnswerText(actual));
-    }
-
-    private String normalizeAnswerText(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text
-                .replace("\u200e", "")
-                .replace("\u200f", "")
-                .trim()
-                .replaceAll("\\s+", " ");
-    }
-
-    private int levenshteinDistance(String expected, String actual) {
-        int[] previous = new int[actual.length() + 1];
-        int[] current = new int[actual.length() + 1];
-        for (int index = 0; index <= actual.length(); index++) {
-            previous[index] = index;
-        }
-        for (int expectedIndex = 1; expectedIndex <= expected.length(); expectedIndex++) {
-            current[0] = expectedIndex;
-            for (int actualIndex = 1; actualIndex <= actual.length(); actualIndex++) {
-                int substitutionCost = expected.charAt(expectedIndex - 1) == actual.charAt(actualIndex - 1) ? 0 : 1;
-                current[actualIndex] = Math.min(
-                        previous[actualIndex] + 1,
-                        Math.min(
-                                current[actualIndex - 1] + 1,
-                                previous[actualIndex - 1] + substitutionCost));
-            }
-            int[] nextPrevious = previous;
-            previous = current;
-            current = nextPrevious;
-        }
-        return previous[actual.length()];
     }
 
     private View spacer(int heightDp) {
