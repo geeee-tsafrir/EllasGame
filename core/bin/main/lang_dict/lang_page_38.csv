@@ -1,0 +1,19 @@
+group,number,gender,Word hebrew,Word arabic,Word arabic alias
+שמות עצם,single,N/A,אב,‏أَب,N/A
+שמות עצם,plural,N/A,אב,‏آبَاء,N/A
+שמות עצם,single,N/A,אח,‏أَخ,N/A
+שמות עצם,plural,N/A,אח,‏إِخْوَة,‏إِخْوَان
+שמות עצם,single,N/A,חם,‏حَم,N/A
+שמות עצם,plural,N/A,חם,‏أَحْمَاء,N/A
+שמות עצם,single,N/A,פה,‏فَم,N/A
+שמות עצם,plural,N/A,פה,‏أَفْمَام,N/A
+שמות עצם,single,N/A,"בעל (תכונה, רכוש) (צורת נסמך)",‏ذُو,N/A
+שמות עצם,plural,N/A,"בעל (תכונה, רכוש) (צורת נסמך)",‏ذَوُو,N/A
+שמות עצם,single,N/A,בן,‏إِبْن,N/A
+שמות עצם,single,N/A,בת,‏إِبْنَة,N/A
+שמות עצם,single,N/A,שם,‏إِسْم,N/A
+שמות עצם,single,N/A,"שת, עכוז",‏إِسْت,N/A
+שמות עצם,single,N/A,שניים,‏إِثْنَانِ,N/A
+שמות עצם,single,N/A,שתיים,‏إِثْنَتَانِ,N/A
+שמות עצם,single,N/A,גבר,‏إِمْرُؤ,N/A
+שמות עצם,single,N/A,אישה,‏إِمْرَأَة,N/A

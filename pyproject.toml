@@ -1,0 +1,13 @@
+[project]
+name = "ellasgame-tools"
+version = "0.1.0"
+description = "Local Python tooling for EllasGame vocabulary PDF extraction."
+requires-python = ">=3.12"
+dependencies = [
+    "pandas",
+    "pdfplumber",
+    "pymupdf",
+]
+
+[tool.uv]
+package = false
