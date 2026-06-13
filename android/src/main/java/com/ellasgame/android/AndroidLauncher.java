@@ -54,6 +54,7 @@ import com.ellasgame.core.Result;
 import com.ellasgame.core.SessionStatistics;
 import com.ellasgame.core.TranslationDirection;
 import com.ellasgame.core.VocabularyDictionary;
+import com.ellasgame.core.VocabularyDeck;
 import com.ellasgame.core.VocabularyEntry;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -90,6 +91,7 @@ public final class AndroidLauncher extends ComponentActivity {
     private final Random random = new Random();
     private final SessionStatistics sessionStatistics = new SessionStatistics();
     private final VocabularyDictionary vocabularyDictionary = loadVocabularyDictionary();
+    private final VocabularyDeck vocabularyDeck = new VocabularyDeck(vocabularyDictionary, random);
 
     private PreviewView cameraPreview;
     private ProcessCameraProvider cameraProvider;
@@ -322,28 +324,7 @@ public final class AndroidLauncher extends ComponentActivity {
     }
 
     private VocabularyEntry randomChallenge() {
-        VocabularyEntry nextChallenge = vocabularyDictionary.randomEntry(random, selectedVocabularyGroups, selectedVocabularyPages);
-        if (currentChallenge == null) {
-            return nextChallenge;
-        }
-
-        List<VocabularyEntry> candidates = vocabularyDictionary.entriesFor(selectedVocabularyGroups, selectedVocabularyPages);
-        if (candidates.size() <= 1) {
-            return nextChallenge;
-        }
-
-        while (sameChallenge(currentChallenge, nextChallenge)) {
-            nextChallenge = vocabularyDictionary.randomEntry(random, selectedVocabularyGroups, selectedVocabularyPages);
-        }
-        return nextChallenge;
-    }
-
-    private boolean sameChallenge(VocabularyEntry first, VocabularyEntry second) {
-        return first.hebrew().equals(second.hebrew())
-                && first.number() == second.number()
-                && first.gender() == second.gender()
-                && first.arabic().equals(second.arabic())
-                && first.arabicAlias().equals(second.arabicAlias());
+        return vocabularyDeck.next(selectedVocabularyGroups, selectedVocabularyPages);
     }
 
     private void showChoiceScreen() {

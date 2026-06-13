@@ -7,6 +7,7 @@ import com.ellasgame.core.QuestionPrompt;
 import com.ellasgame.core.Result;
 import com.ellasgame.core.SessionStatistics;
 import com.ellasgame.core.VocabularyDictionary;
+import com.ellasgame.core.VocabularyDeck;
 import com.ellasgame.core.VocabularyEntry;
 
 import java.awt.BasicStroke;
@@ -123,7 +124,7 @@ public final class DesktopLauncher {
         private final VocabularyDictionary vocabularyDictionary;
         private final CardLayout cards = new CardLayout();
         private final JPanel rootPanel = new JPanel(cards);
-        private final Random random = new Random();
+        private final VocabularyDeck vocabularyDeck;
         private final SessionStatistics sessionStatistics = new SessionStatistics();
         private JFrame frame;
         private VocabularyEntry currentChallenge;
@@ -138,6 +139,7 @@ public final class DesktopLauncher {
             this.cameraOptions = cameraOptions;
             this.cameraStreamPanel = cameraStreamPanel;
             this.vocabularyDictionary = vocabularyDictionary;
+            this.vocabularyDeck = new VocabularyDeck(vocabularyDictionary, new Random());
         }
 
         void attachFrame(JFrame frame) {
@@ -223,28 +225,7 @@ public final class DesktopLauncher {
         private VocabularyEntry randomChallenge() {
             List<String> selectedGroups = ApplicationSettings.current().vocabularyGroups();
             List<String> selectedPages = ApplicationSettings.current().vocabularyPages();
-            VocabularyEntry nextChallenge = vocabularyDictionary.randomEntry(random, selectedGroups, selectedPages);
-            if (currentChallenge == null) {
-                return nextChallenge;
-            }
-
-            List<VocabularyEntry> candidates = vocabularyDictionary.entriesFor(selectedGroups, selectedPages);
-            if (candidates.size() <= 1) {
-                return nextChallenge;
-            }
-
-            while (sameChallenge(currentChallenge, nextChallenge)) {
-                nextChallenge = vocabularyDictionary.randomEntry(random, selectedGroups, selectedPages);
-            }
-            return nextChallenge;
-        }
-
-        private boolean sameChallenge(VocabularyEntry first, VocabularyEntry second) {
-            return first.hebrew().equals(second.hebrew())
-                    && first.number() == second.number()
-                    && first.gender() == second.gender()
-                    && first.arabic().equals(second.arabic())
-                    && first.arabicAlias().equals(second.arabicAlias());
+            return vocabularyDeck.next(selectedGroups, selectedPages);
         }
 
         private JPanel createWordChoicePanel() {
