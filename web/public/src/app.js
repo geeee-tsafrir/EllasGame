@@ -206,7 +206,10 @@ function renderChoice() {
   app.innerHTML = `
     <section class="screen">
       <div class="panel">
-        <p class="question-prefix">${asksHebrew ? "מה זה בערבית?" : "Translate to Hebrew"}</p>
+        <div class="question-top">
+          <p class="question-prefix">${asksHebrew ? "מה זה בערבית?" : "Translate to Hebrew"}</p>
+          ${replayButtonHtml()}
+        </div>
         <p class="question-word" lang="${asksHebrew ? "he" : "ar"}" dir="${asksHebrew ? "rtl" : "rtl"}">${escapeHtml(questionWord())}</p>
         <p class="question-detail">${escapeHtml(challengeDetailText(state.current))}</p>
         <div class="choice-grid">
@@ -227,6 +230,7 @@ function renderChoice() {
       </div>
     </section>
   `;
+  one("[data-action='replay']").addEventListener("click", speakQuestion);
   disableChoice("camera");
   one("[data-action='keyboard']").addEventListener("click", renderKeyboard);
   disableChoice("sketchpad");
@@ -244,7 +248,7 @@ function renderKeyboard() {
       <div class="panel">
         <div class="toolbar">
           <button data-action="back">Back</button>
-          <button data-action="speak">Speak</button>
+          ${replayButtonHtml()}
         </div>
         <p class="question-prefix">${state.currentDirection === DIRECTIONS.ARABIC_TO_HEBREW ? "Hebrew word" : "Arabic word"}</p>
         <p class="question-word" lang="${state.currentDirection === DIRECTIONS.ARABIC_TO_HEBREW ? "ar" : "he"}" dir="rtl">${escapeHtml(questionWord())}</p>
@@ -256,12 +260,20 @@ function renderKeyboard() {
     </section>
   `;
   one("[data-action='back']").addEventListener("click", renderChoice);
-  one("[data-action='speak']").addEventListener("click", speakQuestion);
+  one("[data-action='replay']").addEventListener("click", speakQuestion);
   one("#answerForm").addEventListener("submit", (event) => {
     event.preventDefault();
     showResult(one("#answerInput").value, null);
   });
   one("#answerInput").focus();
+}
+
+function replayButtonHtml(label = "Replay voice") {
+  return `
+    <button class="replay-button" data-action="replay" type="button" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">
+      <span aria-hidden="true">↻</span>
+    </button>
+  `;
 }
 
 async function renderCamera() {
@@ -426,7 +438,7 @@ function showResult(answerText, region) {
     signErrors: comparison.signErrors ?? 0
   });
   renderResult(comparison, region);
-  speakText(comparison.expectedText, state.currentDirection === DIRECTIONS.HEBREW_TO_ARABIC ? "ar" : "he-IL");
+  speakResultAnswer(comparison);
 }
 
 function renderResult(comparison, region) {
@@ -438,7 +450,10 @@ function renderResult(comparison, region) {
         <div class="feedback-grid">
           <div class="feedback-line">
             <span>Expected:</span>
-            <span class="feedback-value correct-text" dir="rtl">${expectedFeedbackHtml(comparison)}</span>
+            <span class="answer-replay-row">
+              <span class="feedback-value correct-text" dir="rtl">${expectedFeedbackHtml(comparison)}</span>
+              ${replayButtonHtml("Replay answer voice")}
+            </span>
           </div>
           <div class="feedback-line">
             <span>User:</span>
@@ -458,6 +473,7 @@ function renderResult(comparison, region) {
     </section>
   `;
   one("[data-action='again']").addEventListener("click", startChallenge);
+  one("[data-action='replay']").addEventListener("click", () => speakResultAnswer(comparison));
   one("[data-action='finish']").addEventListener("click", renderSummary);
 }
 
@@ -551,6 +567,14 @@ function speakQuestion() {
     speakText(state.current.arabic, "ar", { rate: 0.95 });
   } else {
     speakText(["מה זה בערבית?", state.current.hebrew, spokenDetail(state.current)], "he-IL", { rate: 0.72, gapMs: 260 });
+  }
+}
+
+function speakResultAnswer(comparison) {
+  if (state.currentDirection === DIRECTIONS.HEBREW_TO_ARABIC) {
+    speakText(comparison.expectedText, "ar", { rate: 0.95 });
+  } else {
+    speakText(comparison.expectedText, "he-IL", { rate: 0.78 });
   }
 }
 
