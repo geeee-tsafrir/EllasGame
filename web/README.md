@@ -23,3 +23,29 @@ npm run dev:host
 ```
 
 Then open the host machine IP address with port `5173`.
+
+## Cloudflare Pages
+
+Use these settings for GitHub/GitLab integration:
+
+```text
+Framework preset: None
+Root directory: web
+Build command: npm run build
+Build output directory: public
+```
+
+The production branch should usually be:
+
+```text
+main
+```
+
+You can also deploy manually with Wrangler:
+
+```bash
+cd web
+npm run deploy:cloudflare
+```
+
+Manual deployment requires a Cloudflare API token and account ID in your shell.
