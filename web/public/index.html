@@ -9,34 +9,10 @@
     <script type="module" src="/src/app.js"></script>
   </head>
   <body>
-    <main class="app-shell">
-      <section class="top-bar" aria-label="Game status">
-        <div>
-          <p class="eyebrow">EllasGame</p>
-          <h1>Vocabulary Trainer</h1>
-        </div>
-        <output id="speechStatus" class="status-pill">Checking speech</output>
-      </section>
-
-      <section class="practice-panel" aria-label="Vocabulary practice">
-        <div class="prompt-meta">
-          <span id="groupLabel">Group</span>
-          <span id="pageLabel">Page</span>
-        </div>
-        <p id="promptWord" class="prompt-word" lang="he" dir="rtl">...</p>
-        <p id="promptDetail" class="prompt-detail">...</p>
-
-        <div class="answer-row">
-          <input id="answerInput" type="text" autocomplete="off" placeholder="Arabic answer" aria-label="Arabic answer">
-          <button id="checkButton" type="button">Check</button>
-        </div>
-
-        <p id="feedback" class="feedback" aria-live="polite"></p>
-
-        <div class="action-row">
-          <button id="speakButton" type="button">Speak</button>
-          <button id="nextButton" type="button">Next</button>
-        </div>
+    <main id="app" class="app-shell" aria-live="polite">
+      <section class="loading-panel">
+        <p class="eyebrow">EllasGame</p>
+        <h1>Loading vocabulary</h1>
       </section>
     </main>
   </body>

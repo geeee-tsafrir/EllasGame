@@ -69,6 +69,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Web generated assets
+web/public/icons/
+web/public/vocabulary.json
+
 # Python bytecode
 __pycache__/
 *.py[cod]

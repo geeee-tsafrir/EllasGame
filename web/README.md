@@ -2,10 +2,18 @@
 
 This is a dependency-free browser skeleton for testing the web target.
 
+Build generated vocabulary data:
+
+```bash
+cd web
+npm run build
+```
+
 Run locally:
 
 ```bash
 cd web
+npm run build
 npm run dev
 ```
 
