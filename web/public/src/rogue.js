@@ -15,6 +15,8 @@ const ROGUE_MONSTER_TEMPLATES = [
   { name: "Scout", attack: 3, defense: 1, hp: 8, speed: 2 },
   { name: "Brute", attack: 6, defense: 2, hp: 14, speed: 1 }
 ];
+const ROGUE_VIEWPORT_SIZE = 10;
+const ROGUE_VIEWPORT_PLAYER_OFFSET = 5;
 
 export function createRogueController(deps) {
   const {
@@ -40,24 +42,13 @@ export function createRogueController(deps) {
   } = deps;
 
   function startRogueGame() {
-    lockRogueLandscape();
     stopCamera();
     state.attempts = [];
     state.rogue = createRogueGame(1);
     renderRogueDungeon();
   }
 
-  function lockRogueLandscape() {
-    if (!screen.orientation?.lock) {
-      return;
-    }
-    screen.orientation.lock("landscape").catch(() => {});
-  }
-
   function exitRogueToMenu() {
-    if (screen.orientation?.unlock) {
-      screen.orientation.unlock();
-    }
     renderMenu();
   }
   
@@ -246,40 +237,37 @@ export function createRogueController(deps) {
     markRogueExplored(rogue, visible);
     app.innerHTML = `
       <section class="rogue-screen">
-        <div class="rogue-topbar">
+        <header class="rogue-topbar">
           <button data-action="menu">Menu</button>
           <div class="rogue-stat"><span>Level</span><strong>${rogue.level}</strong></div>
           <div class="rogue-stat"><span>HP</span><strong>${rogue.player.hp}/${rogue.player.maxHp}</strong></div>
           <div class="rogue-stat"><span>ATK</span><strong>${rogue.player.attack}</strong></div>
           <div class="rogue-stat"><span>DEF</span><strong>${rogue.player.defense}</strong></div>
+          <div class="rogue-stat"><span>SPD</span><strong>${rogue.player.speed}</strong></div>
+        </header>
+        <div class="rogue-map" role="grid" aria-label="Dungeon map">
+          ${rogueViewportCells(rogue).map((cell) => rogueCellHtml(rogue, visible, rogue.explored, cell.x, cell.y)).join("")}
         </div>
-        <div class="rogue-layout">
-          <div class="rogue-map" role="grid" aria-label="Dungeon map">
-            ${rogue.tiles.map((row, y) => row.map((tile, x) => rogueCellHtml(rogue, visible, rogue.explored, tile, x, y)).join("")).join("")}
+        <footer class="rogue-bottom">
+          <p class="rogue-message">${escapeHtml(rogue.message)}</p>
+          <div class="rogue-controls" aria-label="Move controls">
+            <span></span>
+            <button data-move="up" aria-label="Move up">Up</button>
+            <span></span>
+            <button data-move="left" aria-label="Move left">Left</button>
+            <span></span>
+            <button data-move="right" aria-label="Move right">Right</button>
+            <span></span>
+            <button data-move="down" aria-label="Move down">Down</button>
+            <span></span>
           </div>
-          <aside class="rogue-side">
-            <p class="eyebrow">Rogue</p>
-            <h2>Dungeon</h2>
-            <p class="rogue-message">${escapeHtml(rogue.message)}</p>
-            <div class="rogue-controls" aria-label="Move controls">
-              <span></span>
-              <button data-move="up" aria-label="Move up">Up</button>
-              <span></span>
-              <button data-move="left" aria-label="Move left">Left</button>
-              <span></span>
-              <button data-move="right" aria-label="Move right">Right</button>
-              <span></span>
-              <button data-move="down" aria-label="Move down">Down</button>
-              <span></span>
-            </div>
-            <div class="rogue-legend">
-              <span><b class="legend-player">P</b> Player</span>
-              <span><b class="legend-monster">M</b> Monster</span>
-              <span><b class="legend-door">D</b> Door</span>
-              <span><b class="legend-exit">E</b> Exit</span>
-            </div>
-          </aside>
-        </div>
+          <div class="rogue-legend">
+            <span><b class="legend-player">P</b> Player</span>
+            <span><b class="legend-monster">M</b> Monster</span>
+            <span><b class="legend-door">D</b> Door</span>
+            <span><b class="legend-exit">E</b> Exit</span>
+          </div>
+        </footer>
       </section>
     `;
     one("[data-action='menu']").addEventListener("click", exitRogueToMenu);
@@ -289,7 +277,23 @@ export function createRogueController(deps) {
     window.onkeydown = handleRogueKeyboard;
   }
   
-  function rogueCellHtml(rogue, visible, explored, tile, x, y) {
+  function rogueViewportCells(rogue) {
+    const cells = [];
+    const startX = rogue.player.x - ROGUE_VIEWPORT_PLAYER_OFFSET;
+    const startY = rogue.player.y - ROGUE_VIEWPORT_PLAYER_OFFSET;
+    for (let row = 0; row < ROGUE_VIEWPORT_SIZE; row++) {
+      for (let column = 0; column < ROGUE_VIEWPORT_SIZE; column++) {
+        cells.push({ x: startX + column, y: startY + row });
+      }
+    }
+    return cells;
+  }
+
+  function rogueCellHtml(rogue, visible, explored, x, y) {
+    if (!isInsideDungeon(rogue, x, y)) {
+      return `<span class="rogue-cell unseen" role="gridcell"></span>`;
+    }
+    const tile = rogue.tiles[y][x];
     const visibleKey = positionKey(x, y);
     const isVisible = visible.has(visibleKey);
     if (!explored.has(visibleKey)) {
@@ -391,12 +395,11 @@ export function createRogueController(deps) {
   function moveRogueMonsters() {
     const rogue = state.rogue;
     for (const monster of [...rogue.monsters]) {
-      monster.energy += monster.speed;
-      while (monster.energy >= rogue.player.speed && rogue.player.hp > 0) {
-        monster.energy -= rogue.player.speed;
-        if (moveRogueMonster(monster)) {
-          return true;
-        }
+      if (rogue.player.hp <= 0) {
+        return false;
+      }
+      if (moveRogueMonster(monster)) {
+        return true;
       }
     }
     return false;
@@ -409,7 +412,19 @@ export function createRogueController(deps) {
       beginRogueMonsterAttack(monster);
       return true;
     }
-    if (distance > 6) {
+    for (let step = 0; step < monster.speed; step++) {
+      if (!moveRogueMonsterStep(monster)) {
+        break;
+      }
+      if (distanceToPlayer(monster) <= 1) {
+        break;
+      }
+    }
+    return false;
+  }
+
+  function moveRogueMonsterStep(monster) {
+    if (distanceToPlayer(monster) > 6) {
       return false;
     }
     const options = Object.values(ROGUE_DIRECTIONS)
@@ -417,11 +432,12 @@ export function createRogueController(deps) {
       .filter((position) => canMonsterMoveTo(position.x, position.y, monster.id))
       .sort((first, second) => distanceToPlayer(first) - distanceToPlayer(second));
     const next = options[0];
-    if (next) {
-      monster.x = next.x;
-      monster.y = next.y;
+    if (!next) {
+      return false;
     }
-    return false;
+    monster.x = next.x;
+    monster.y = next.y;
+    return true;
   }
 
   function isRoguePromptActive() {
