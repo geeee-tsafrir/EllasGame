@@ -1,3 +1,5 @@
+import { createRogueController } from "./rogue.js";
+
 const STORAGE_KEY = "ellasgame.web.settings";
 const DIRECTIONS = {
   HEBREW_TO_ARABIC: "hebrew_to_arabic",
@@ -13,7 +15,6 @@ const GENDER_LABELS = {
   male: "זכר",
   "N/A": ""
 };
-
 const app = document.querySelector("#app");
 const state = {
   vocabulary: [],
@@ -29,10 +30,33 @@ const state = {
   current: null,
   currentDirection: DIRECTIONS.HEBREW_TO_ARABIC,
   attempts: [],
+  rogue: null,
   cameraStream: null,
   snapshot: null,
   region: null
 };
+
+const rogueGame = createRogueController({
+  DIRECTIONS,
+  app,
+  state,
+  stopCamera,
+  renderMenu,
+  nextEntry,
+  resolveDirection,
+  replayButtonHtml,
+  challengeDetailText,
+  challengeDisplayText,
+  compareArabic,
+  compareHebrew,
+  expectedFeedbackHtml,
+  userFeedbackHtml,
+  spokenDetail,
+  speakText,
+  escapeHtml,
+  one,
+  all
+});
 
 main().catch((error) => {
   console.error(error);
@@ -56,6 +80,7 @@ async function loadVocabulary() {
 }
 
 function renderMenu() {
+  window.onkeydown = null;
   stopCamera();
   app.innerHTML = `
     <section class="screen">
@@ -69,6 +94,10 @@ function renderMenu() {
             <img class="menu-icon" src="/icons/play.png" alt="" aria-hidden="true">
             <span class="menu-label">Play</span>
           </button>
+          <button class="menu-action" data-action="play-rogue">
+            <img class="menu-icon" src="/icons/play.png" alt="" aria-hidden="true">
+            <span class="menu-label">Play Rogue</span>
+          </button>
           <p class="selected-count">${entryCountForSelection()} words selected</p>
         </div>
       </div>
@@ -76,6 +105,7 @@ function renderMenu() {
   `;
   one("[data-action='settings']").addEventListener("click", renderSettingsDialog);
   one("[data-action='play']").addEventListener("click", startSession);
+  one("[data-action='play-rogue']").addEventListener("click", rogueGame.startRogueGame);
 }
 
 function renderSettingsDialog() {

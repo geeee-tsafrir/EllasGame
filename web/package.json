@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server.mjs",
     "dev:host": "node server.mjs --host 0.0.0.0",
-    "check": "node --check server.mjs && node --check scripts/build-assets.mjs && node --check scripts/build-vocabulary.mjs && node --check public/src/app.js",
+    "check": "node --check server.mjs && node --check scripts/build-assets.mjs && node --check scripts/build-vocabulary.mjs && node --check public/src/app.js && node --check public/src/rogue.js",
     "build": "npm run check && node scripts/build-assets.mjs && node scripts/build-vocabulary.mjs",
     "deploy:cloudflare": "npm run build && npx wrangler pages deploy public --project-name=ellasgame"
   },

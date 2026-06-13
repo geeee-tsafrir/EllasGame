@@ -382,6 +382,214 @@ canvas,
   text-align: center;
 }
 
+.rogue-screen {
+  position: relative;
+  min-height: calc(100vh - 36px);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 14px;
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  .rogue-screen::before {
+    content: "Rotate your phone to landscape for Rogue.";
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+    background: rgba(5, 7, 10, 0.92);
+    color: var(--text);
+    text-align: center;
+    font-size: 1.35rem;
+    font-weight: 800;
+  }
+}
+
+.rogue-topbar {
+  display: grid;
+  grid-template-columns: auto repeat(4, minmax(78px, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+.rogue-stat {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.rogue-stat span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.rogue-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 310px);
+  gap: 14px;
+  align-items: start;
+}
+
+.rogue-map {
+  display: grid;
+  grid-template-columns: repeat(18, minmax(0, 1fr));
+  gap: 3px;
+  width: min(100%, 760px);
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #090d12;
+}
+
+.rogue-cell {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: #1b222c;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(0.6rem, 2.2vw, 1rem);
+  font-weight: 850;
+  line-height: 1;
+}
+
+.rogue-cell.wall {
+  background: #3b414b;
+  color: #707a88;
+}
+
+.rogue-cell.floor {
+  background: #151b22;
+  color: #4e5a68;
+}
+
+.rogue-cell.door {
+  background: #5f4528;
+  color: #f5c77a;
+}
+
+.rogue-cell.exit {
+  background: #17472d;
+  color: #7ff0aa;
+}
+
+.rogue-cell.player {
+  background: #1d4d80;
+  color: #ffffff;
+}
+
+.rogue-cell.monster {
+  background: #6f2323;
+  color: #ffffff;
+}
+
+.rogue-cell.explored {
+  opacity: 0.42;
+}
+
+.rogue-cell.unseen {
+  background: #05070a;
+  color: transparent;
+}
+
+.rogue-side {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.rogue-message {
+  min-height: 3em;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.rogue-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rogue-controls button {
+  min-height: 56px;
+  padding: 0 8px;
+  font-weight: 800;
+}
+
+.rogue-legend,
+.rogue-combat-stats {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.rogue-enemy-status {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(5, 7, 10, 0.28);
+}
+
+.rogue-enemy-status h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.rogue-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rogue-legend b {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+  border-radius: 4px;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.legend-player {
+  background: #1d4d80;
+}
+
+.legend-monster {
+  background: #6f2323;
+}
+
+.legend-door {
+  background: #5f4528;
+}
+
+.legend-exit {
+  background: #17472d;
+}
+
+.rogue-fight {
+  max-width: 760px;
+}
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -407,7 +615,8 @@ canvas,
   }
 
   .screen,
-  .surface-panel {
+  .surface-panel,
+  .rogue-screen {
     min-height: calc(100vh - 24px);
   }
 
@@ -457,5 +666,27 @@ canvas,
   .camera-wrap,
   .canvas-wrap {
     min-height: 360px;
+  }
+
+  .rogue-topbar,
+  .rogue-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .rogue-topbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rogue-topbar button {
+    grid-column: 1 / -1;
+  }
+
+  .rogue-map {
+    gap: 2px;
+    padding: 6px;
+  }
+
+  .rogue-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
