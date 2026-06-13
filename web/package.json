@@ -1,0 +1,12 @@
+{
+  "name": "ellasgame-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "dev:host": "node server.mjs --host 0.0.0.0",
+    "check": "node --check server.mjs"
+  },
+  "devDependencies": {}
+}
