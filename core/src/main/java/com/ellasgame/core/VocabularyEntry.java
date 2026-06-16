@@ -1,22 +1,27 @@
 package com.ellasgame.core;
 
 import java.util.Objects;
+import java.util.ArrayList;
 import java.util.List;
 
-public record VocabularyEntry(String group, String page, NumberForm number, Gender gender, String hebrew, String arabic, String arabicAlias) {
+public record VocabularyEntry(String group, String page, NumberForm number, Gender gender, String hebrew, String arabic, String arabicAlias, String arabicAlias2) {
     public static final String NO_ALIAS = "N/A";
     public static final String UNKNOWN_PAGE = "N/A";
 
     public VocabularyEntry(String group, NumberForm number, String hebrew, String arabic) {
-        this(group, UNKNOWN_PAGE, number, Gender.NOT_APPLICABLE, hebrew, arabic, NO_ALIAS);
+        this(group, UNKNOWN_PAGE, number, Gender.NOT_APPLICABLE, hebrew, arabic, NO_ALIAS, NO_ALIAS);
     }
 
     public VocabularyEntry(String group, NumberForm number, Gender gender, String hebrew, String arabic) {
-        this(group, UNKNOWN_PAGE, number, gender, hebrew, arabic, NO_ALIAS);
+        this(group, UNKNOWN_PAGE, number, gender, hebrew, arabic, NO_ALIAS, NO_ALIAS);
     }
 
     public VocabularyEntry(String group, NumberForm number, Gender gender, String hebrew, String arabic, String arabicAlias) {
-        this(group, UNKNOWN_PAGE, number, gender, hebrew, arabic, arabicAlias);
+        this(group, UNKNOWN_PAGE, number, gender, hebrew, arabic, arabicAlias, NO_ALIAS);
+    }
+
+    public VocabularyEntry(String group, String page, NumberForm number, Gender gender, String hebrew, String arabic, String arabicAlias) {
+        this(group, page, number, gender, hebrew, arabic, arabicAlias, NO_ALIAS);
     }
 
     public VocabularyEntry {
@@ -27,17 +32,27 @@ public record VocabularyEntry(String group, String page, NumberForm number, Gend
         hebrew = requireText(hebrew, "hebrew");
         arabic = requireText(arabic, "arabic");
         arabicAlias = normalizeAlias(arabicAlias);
+        arabicAlias2 = normalizeAlias(arabicAlias2);
     }
 
     public boolean hasArabicAlias() {
         return !NO_ALIAS.equals(arabicAlias);
     }
 
+    public boolean hasArabicAlias2() {
+        return !NO_ALIAS.equals(arabicAlias2);
+    }
+
     public List<String> arabicAnswers() {
-        if (!hasArabicAlias()) {
-            return List.of(arabic);
+        List<String> answers = new ArrayList<>();
+        answers.add(arabic);
+        if (hasArabicAlias()) {
+            answers.add(arabicAlias);
         }
-        return List.of(arabic, arabicAlias);
+        if (hasArabicAlias2()) {
+            answers.add(arabicAlias2);
+        }
+        return List.copyOf(answers);
     }
 
     private static String requireText(String value, String name) {

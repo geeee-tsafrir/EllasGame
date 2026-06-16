@@ -631,7 +631,8 @@ function speakParts(parts, lang, options, index) {
 }
 
 function compareArabic(entry, actual) {
-  const answers = entry.arabicAlias && entry.arabicAlias !== "N/A" ? [entry.arabic, entry.arabicAlias] : [entry.arabic];
+  const answers = [entry.arabic, entry.arabicAlias, entry.arabicAlias2]
+    .filter((answer) => answer && answer !== "N/A");
   return answers.map((answer) => compareArabicExpected(answer, actual)).sort((a, b) =>
     a.totalErrors - b.totalErrors || a.baseLetterErrors - b.baseLetterErrors || a.signErrors - b.signErrors
   )[0];

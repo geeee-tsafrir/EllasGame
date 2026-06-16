@@ -18,8 +18,8 @@ for (const file of files) {
     if (row.length === 0 || row.every((value) => value.trim() === "")) {
       continue;
     }
-    if (row.length !== 4 && row.length !== 5 && row.length !== 6) {
-      throw new Error(`${file} has unsupported CSV column count: ${row.length}`);
+    if (row.length !== 7) {
+      throw new Error(`${file} expected 7 CSV columns, got ${row.length}`);
     }
     entries.push(entryFromRow(row, page));
   }
@@ -29,36 +29,15 @@ await writeFile(outputPath, `${JSON.stringify(entries, null, 2)}\n`, "utf8");
 console.log(`Wrote ${entries.length} vocabulary entries to ${outputPath}`);
 
 function entryFromRow(row, page) {
-  if (row.length === 6) {
-    return {
-      group: stripBom(row[0]),
-      page,
-      number: numberFromCsv(row[1]),
-      gender: genderFromCsv(row[2]),
-      hebrew: row[3].trim(),
-      arabic: stripDirectionControls(row[4]),
-      arabicAlias: normalizeAlias(stripDirectionControls(row[5]))
-    };
-  }
-  if (row.length === 5) {
-    return {
-      group: stripBom(row[0]),
-      page,
-      number: numberFromCsv(row[1]),
-      gender: genderFromCsv(row[2]),
-      hebrew: row[3].trim(),
-      arabic: stripDirectionControls(row[4]),
-      arabicAlias: "N/A"
-    };
-  }
   return {
     group: stripBom(row[0]),
     page,
     number: numberFromCsv(row[1]),
-    gender: "N/A",
-    hebrew: row[2].trim(),
-    arabic: stripDirectionControls(row[3]),
-    arabicAlias: "N/A"
+    gender: genderFromCsv(row[2]),
+    hebrew: row[3].trim(),
+    arabic: stripDirectionControls(row[4]),
+    arabicAlias: normalizeAlias(stripDirectionControls(row[5])),
+    arabicAlias2: normalizeAlias(stripDirectionControls(row[6]))
   };
 }
 

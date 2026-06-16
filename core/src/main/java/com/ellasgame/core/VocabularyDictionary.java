@@ -104,10 +104,7 @@ public final class VocabularyDictionary {
                 continue;
             }
             List<String> columns = parseCsvLine(line);
-            if (columns.size() != 4 && columns.size() != 5 && columns.size() != 6) {
-                throw new IllegalArgumentException(sourceName + ":" + lineNumber + " expected 4, 5, or 6 CSV columns.");
-            }
-            if (columns.size() == 6) {
+            if (columns.size() == 7) {
                 parsedEntries.add(new VocabularyEntry(
                         stripBom(columns.get(0)),
                         page,
@@ -115,28 +112,11 @@ public final class VocabularyDictionary {
                         VocabularyEntry.Gender.fromCsv(columns.get(2)),
                         columns.get(3),
                         stripDirectionControls(columns.get(4)),
-                        stripDirectionControls(columns.get(5))));
+                        stripDirectionControls(columns.get(5)),
+                        stripDirectionControls(columns.get(6))));
                 continue;
             }
-            if (columns.size() == 5) {
-                parsedEntries.add(new VocabularyEntry(
-                        stripBom(columns.get(0)),
-                        page,
-                        VocabularyEntry.NumberForm.fromCsv(columns.get(1)),
-                        VocabularyEntry.Gender.fromCsv(columns.get(2)),
-                        columns.get(3),
-                        stripDirectionControls(columns.get(4)),
-                        VocabularyEntry.NO_ALIAS));
-                continue;
-            }
-            parsedEntries.add(new VocabularyEntry(
-                    stripBom(columns.get(0)),
-                    page,
-                    VocabularyEntry.NumberForm.fromCsv(columns.get(1)),
-                    VocabularyEntry.Gender.NOT_APPLICABLE,
-                    columns.get(2),
-                    stripDirectionControls(columns.get(3)),
-                    VocabularyEntry.NO_ALIAS));
+            throw new IllegalArgumentException(sourceName + ":" + lineNumber + " expected 7 CSV columns.");
         }
         return parsedEntries;
     }
