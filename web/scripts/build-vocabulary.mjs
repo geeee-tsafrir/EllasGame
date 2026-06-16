@@ -6,12 +6,12 @@ const dictionaryDir = resolve(rootDir, "lang_dict");
 const outputPath = resolve("public", "vocabulary.json");
 
 const files = (await readdir(dictionaryDir))
-  .filter((file) => /^lang_page_\d+\.csv$/.test(file))
-  .sort((first, second) => pageFromFile(first) - pageFromFile(second));
+  .filter((file) => /^lang_day_\d+\.csv$/.test(file))
+  .sort((first, second) => dayFromFile(first) - dayFromFile(second));
 
 const entries = [];
 for (const file of files) {
-  const page = String(pageFromFile(file));
+  const page = String(dayFromFile(file));
   const content = await readFile(resolve(dictionaryDir, file), "utf8");
   const rows = parseCsv(content);
   for (const row of rows.slice(1)) {
@@ -82,7 +82,7 @@ function parseCsv(content) {
   return rows;
 }
 
-function pageFromFile(file) {
+function dayFromFile(file) {
   return Number.parseInt(basename(file).match(/\d+/)?.[0] ?? "0", 10);
 }
 

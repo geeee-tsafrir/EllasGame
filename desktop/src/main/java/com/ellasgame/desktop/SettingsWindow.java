@@ -123,7 +123,7 @@ public final class SettingsWindow {
                 settings.vocabularyGroups(),
                 Map.of());
         VocabularyCheckboxSelector vocabularyPageSelector = createVocabularyCheckboxSelector(
-                "All pages",
+                "All days",
                 vocabularyPages,
                 settings.vocabularyPages(),
                 vocabularyPageWordCounts);
@@ -152,7 +152,7 @@ public final class SettingsWindow {
 
         addSettingsRow(table, 0, "Camera", cameraSelector);
         addSettingsRow(table, 1, "Groups", groupSelector);
-        addSettingsRow(table, 2, "Pages", pageSelector);
+        addSettingsRow(table, 2, "Days", pageSelector);
 
         GridBagConstraints fillerConstraints = new GridBagConstraints();
         fillerConstraints.gridx = 0;

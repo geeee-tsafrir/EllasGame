@@ -693,11 +693,11 @@ public final class AndroidLauncher extends ComponentActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         pagesLabelParams.setMargins(0, dp(18), 0, dp(6));
-        settingsLayout.addView(foldHeader("Pages", pagesContent), pagesLabelParams);
+        settingsLayout.addView(foldHeader("Days", pagesContent), pagesLabelParams);
         settingsLayout.addView(pagesContent);
 
         CheckBox allPagesCheckbox = new CheckBox(this);
-        allPagesCheckbox.setText("All pages");
+        allPagesCheckbox.setText("All days");
         allPagesCheckbox.setChecked(selectedVocabularyPages.isEmpty());
         pagesContent.addView(allPagesCheckbox);
 

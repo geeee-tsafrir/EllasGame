@@ -15,7 +15,7 @@ and emits columns usable by the game dictionary:
     group, number, gender, Word hebrew, Word arabic
 
 The output is a draft. Arabic signs in this PDF are fragile, so each page should
-still be reviewed before writing the final lang_dict/lang_page_N.csv file.
+still be reviewed before writing the final lang_dict/lang_day_N.csv file.
 """
 
 from __future__ import annotations

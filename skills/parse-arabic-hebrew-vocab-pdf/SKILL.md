@@ -1,6 +1,6 @@
 ---
 name: parse-arabic-hebrew-vocab-pdf
-description: Parse the EllasGame Arabic-Hebrew vocabulary PDF page by page into reviewed CSV tables. Use when continuing the אוצר מילים.pdf extraction, creating lang_page_N.csv files, reviewing parsed Hebrew/Arabic vocabulary tables, preserving UTF-8 Arabic diacritics, splitting singular/plural forms, or following the user's established expectations for this vocabulary dictionary workflow.
+description: Parse the EllasGame Arabic-Hebrew vocabulary PDF page by page into reviewed CSV tables. Use when continuing the אוצר מילים.pdf extraction, creating lang_day_N.csv files, reviewing parsed Hebrew/Arabic vocabulary tables, preserving UTF-8 Arabic diacritics, splitting singular/plural forms, or following the user's established expectations for this vocabulary dictionary workflow.
 ---
 
 # Parse Arabic-Hebrew Vocab PDF
@@ -17,7 +17,7 @@ Use this skill for the EllasGame vocabulary dictionary extraction from `/Users/g
 - Ignore the page header and footer/footnotes unless the user explicitly asks about them.
 - Keep the user’s corrections authoritative. If the user corrects one cell, update that cell and show the full table again.
 - After every parser or table fix, rerun the page and print the full table, not only the corrected row.
-- When asked to write CSV, write under `lang_dict/lang_page_N.csv`.
+- When asked to write CSV, write under `lang_dict/lang_day_N.csv`, where `N` is the vocabulary day number from the page header.
 - Before presenting a reviewed table, perform a row-by-row QA pass against raw `pdfplumber` word coordinates for the page. Do not rely only on the parser output for Arabic diacritics or group headings.
 
 ## Output Schema
@@ -84,8 +84,8 @@ index Arabic – Hebrew
 Already created in this project:
 
 ```text
-lang_dict/lang_page_1.csv
-lang_dict/lang_page_2.csv
+lang_dict/lang_day_1.csv
+lang_dict/lang_day_2.csv
 ```
 
 ## Page 2 Confirmed Corrections
@@ -113,5 +113,5 @@ The user corrected these:
    - normalize clear extraction artifacts consistently with prior approved pages.
 8. Present a Markdown table to the user.
 9. Apply user corrections.
-10. When approved, write `lang_dict/lang_page_N.csv`.
+10. When approved, write `lang_dict/lang_day_N.csv`.
 11. Validate the CSV with `csv.DictReader`.

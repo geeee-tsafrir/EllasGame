@@ -151,11 +151,11 @@ function renderSettingsDialog() {
             </div>
           </details>
           <details class="fold">
-            <summary>Pages</summary>
+            <summary>Days</summary>
             <div class="checkbox-grid" id="pageChoices">
               <label class="checkbox-row">
                 <input type="checkbox" id="allPages" ${selectedPages.size === 0 ? "checked" : ""}>
-                <span>All pages</span>
+                <span>All days</span>
                 <span></span>
               </label>
               ${state.pages.map((page) => checkboxRow("page", page, selectedPages.size === 0 || selectedPages.has(page), `${state.pageCounts.get(page)} words`)).join("")}

@@ -7,8 +7,8 @@ group,number,gender,Word hebrew,Word arabic,Word arabic alias,Word arabic alias 
 שמות תואר,single,N/A,הגנתי,‏دِفَاعِيّ,N/A,N/A
 שמות תואר,single,N/A,מזג אוויר נעים,‏جَوّ مُعْتَدِل,N/A,N/A
 שמות תואר,single,N/A,שָׁקֵט,‏هَادِئ,N/A,N/A
-שמות תואר,single,N/A,זָר (ש"ע / ש"ת),‏أَجْنَبِيّ,N/A,N/A
-שמות תואר,plural,N/A,זָר (ש"ע / ש"ת),‏أَجَانِب,N/A,N/A
+שמות תואר,single,N/A,"זָר (ש""ע / ש""ת)",‏أَجْنَبِيّ,N/A,N/A
+שמות תואר,plural,N/A,"זָר (ש""ע / ש""ת)",‏أَجَانِب,N/A,N/A
 שמות תואר,single,N/A,מיוחד,‏خَاصّ,N/A,N/A
 שמות תואר,single,N/A,במיוחד,‏خَاصَّةً,N/A,N/A
 מיליות,single,N/A,"מקום בו, מפני ש..., באופן ש..., כאשר",‏حَيْثُ,N/A,N/A

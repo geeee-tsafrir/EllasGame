@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 
 public final class VocabularyDictionary {
     private static final String INDEX_RESOURCE = "/lang_dict/index.txt";
-    private static final Pattern PAGE_FILE_PATTERN = Pattern.compile("lang_page_(\\d+)\\.csv");
+    private static final Pattern DAY_FILE_PATTERN = Pattern.compile("lang_day_(\\d+)\\.csv");
 
     private final List<VocabularyEntry> entries;
     private final List<String> groups;
@@ -57,7 +57,7 @@ public final class VocabularyDictionary {
                     if (fileName.isEmpty()) {
                         continue;
                     }
-                    Result<List<VocabularyEntry>, String> fileEntries = loadCsvResource("/lang_dict/" + fileName, pageFromFileName(fileName));
+                    Result<List<VocabularyEntry>, String> fileEntries = loadCsvResource("/lang_dict/" + fileName, dayFromFileName(fileName));
                     if (fileEntries instanceof Result.Failure<List<VocabularyEntry>, String> failure) {
                         return Result.failure(failure.error());
                     }
@@ -121,8 +121,8 @@ public final class VocabularyDictionary {
         return parsedEntries;
     }
 
-    private static String pageFromFileName(String fileName) {
-        Matcher matcher = PAGE_FILE_PATTERN.matcher(fileName);
+    private static String dayFromFileName(String fileName) {
+        Matcher matcher = DAY_FILE_PATTERN.matcher(fileName);
         if (!matcher.matches()) {
             return VocabularyEntry.UNKNOWN_PAGE;
         }
