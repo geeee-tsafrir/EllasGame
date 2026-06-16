@@ -64,6 +64,7 @@ settings.json
 Thumbs.db
 
 # Temporary files
+tmp/
 *.tmp
 *.temp
 *.swp
