@@ -15,7 +15,8 @@ final class VocabularyDictionaryTest {
 
         assertTrue(dictionary.pages().contains("81"));
         assertTrue(dictionary.pages().contains("67"));
-        assertFalse(dictionary.pages().contains("46"));
+        assertTrue(dictionary.pages().contains("46"));
+        assertFalse(dictionary.pages().contains("30"));
         assertFalse(dictionary.pages().contains("38"));
         assertEquals(45, dictionary.entryCountForPage("67"));
     }
